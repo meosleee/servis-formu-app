@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Servis Formu</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --border: #e6e8ec;
+      --text: #17181c;
+      --text-2: #5c6370;
+      --text-3: #9aa1ad;
+      --accent: #16a34a;
+      --accent-dark: #12833d;
+      --danger: #dc2626;
+      --radius: 12px;
+      --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "SF Pro Text", "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      font-size: 12.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 190px;
+      background: #16181d;
+      color: #fff;
+      padding: 20px 10px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar .app-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #7c8494;
+      padding: 0 10px;
+      margin: 0 0 14px;
+    }
+    .sidebar button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 9px 10px;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      color: #aab1bd;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .sidebar button:hover { background: #23262d; color: #fff; }
+    .sidebar button.active { background: var(--accent); color: #fff; font-weight: 500; }
+
+    /* ---------- Content ---------- */
+    .content {
+      flex: 1;
+      padding: 26px 34px;
+      overflow-y: auto;
+    }
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 16px;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 16px 20px;
+      margin-bottom: 18px;
+    }
+    .card h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      margin: 0 0 12px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    input, select, textarea {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12.5px;
+      background: var(--surface);
+      font-family: inherit;
+      color: var(--text);
+      transition: border-color .12s, box-shadow .12s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(22,163,74,.12);
+    }
+    button {
+      padding: 6px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text);
+      transition: background .12s, border-color .12s;
+    }
+    button:hover { background: #f0f1f3; }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 500;
+      padding: 7px 14px;
+    }
+    button.primary:hover { background: var(--accent-dark); }
+    button.primary:disabled { opacity: .5; cursor: default; }
+    button.ghost-danger { color: var(--danger); }
+    button.ghost-danger:hover { background: #fef2f2; border-color: #fecaca; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th {
+      text-align: left;
+      color: var(--text-3);
+      font-weight: 500;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      padding: 7px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #f0f1f3;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbfc; }
+    td input, td select { padding: 5px 8px; font-size: 12px; }
+
+    .empty {
+      text-align: center;
+      color: var(--text-3);
+      font-size: 12px;
+      padding: 22px 0;
+    }
+    .hint {
+      font-size: 10.5px;
+      color: var(--text-3);
+      margin: 0 0 4px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .sayfa { display: none; }
+    .sayfa.aktif { display: block; }
+
+    /* ---------- Letterhead ---------- */
+    .letterhead {
+      border-bottom: 2px solid #16181d;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .letterhead img { height: 52px; margin-bottom: 6px; display: block; }
+    .letterhead p { margin: 1px 0; font-size: 11px; color: var(--text-2); }
+    .form-badge { text-align: right; white-space: nowrap; padding-left: 20px; }
+    .form-badge .no { font-size: 13px; font-weight: 700; }
+    .form-badge .tarih { font-size: 11px; color: var(--text-2); }
+
+    /* ---------- Totals ---------- */
+    .totals { display: flex; justify-content: flex-end; }
+    .totals-box {
+      width: 250px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+    }
+    .totals-box .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .totals-box .grand {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 600;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+
+    /* ---------- Önizleme ---------- */
+    #onizlemeOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 36px;
+    }
+    body.onizleme-acik .sidebar,
+    body.onizleme-acik .content { display: none; }
+    body.onizleme-acik #onizlemeOverlay { display: block; }
+
+    @page { margin: 14mm; }
+
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; height: auto; font-size: 11px; }
+      .content, #onizlemeOverlay { padding: 0; }
+      .card { border: none; box-shadow: none; padding: 0; margin-bottom: 14px; }
+      table, th, td { border: 1px solid #444 !important; }
+      th { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      td, th { padding: 5px 6px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar no-print">
+    <p class="app-title">Petsis Servis</p>
+    <button class="active" id="sekmeFirmalarBtn" onclick="sekmeGoster('firmalar')">Firmalar</button>
+    <button id="sekmeFormBtn" onclick="sekmeGoster('form')">Servis formu</button>
+    <button id="sekmeGecmisBtn" onclick="sekmeGoster('gecmis')">Geçmiş formlar</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ============ FİRMALAR ============ -->
+    <div class="sayfa aktif" id="sayfaFirmalar">
+      <h2>Firmalar</h2>
+
+      <div class="card">
+        <h3>Yeni firma ekle</h3>
+        <div class="form-row">
+          <input id="unvan" placeholder="Firma unvanı" />
+          <input id="vkn" placeholder="VKN" />
+          <button class="primary" id="ekleBtn">Firma ekle</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Firma listesi</h3>
+        <table>
+          <thead><tr><th>Unvan</th><th>VKN</th><th style="width:150px;">İşlem</th></tr></thead>
+          <tbody id="firmaListesi"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Adresler</h3>
+        <div class="form-row">
+          <select id="firmaSecim"></select>
+        </div>
+        <div class="form-row">
+          <input id="adres" placeholder="Adres" />
+          <input id="telefon" placeholder="Telefon" />
+          <button class="primary" id="lokasyonEkleBtn">Adres ekle</button>
+        </div>
+        <table>
+          <thead><tr><th>Adres</th><th>Telefon</th><th style="width:150px;">İşlem</th></tr></thead>
+          <tbody id="lokasyonListesi"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Ürün / hizmet kütüphanesi</h3>
+        <div class="form-row">
+          <input id="urunAd" placeholder="Ürün / hizmet adı" />
+          <input id="urunFiyat" placeholder="Fiyat" type="number" step="0.01" />
+          <select id="paraBirimi" style="max-width: 80px;">
+            <option value="TRY">TL</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
+          <input id="urunKdv" placeholder="KDV %" type="number" value="20" style="max-width: 80px;" />
+          <button class="primary" id="urunEkleBtn">Ürün ekle</button>
+        </div>
+        <p class="hint" id="kurBilgisi" style="text-transform:none;"></p>
+        <table>
+          <thead><tr><th>Ad</th><th>Birim fiyat (TL)</th><th>KDV</th><th style="width:150px;">İşlem</th></tr></thead>
+          <tbody id="urunListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ SERVİS FORMU ============ -->
+    <div class="sayfa" id="sayfaServisFormu">
+
+      <div class="letterhead">
+        <div>
+          <img src="assets/logo.png" alt="Petsis" />
+          <p><strong>Kıvanç Buğdaycı</strong></p>
+          <p>2. San. Sit. Kazımdirlik Mh. 351 Sk. Afa İş Merkezi No:7/312 Bornova/İzmir</p>
+          <p>Tel: 0538 342 59 02 &nbsp;|&nbsp; Vakıfbank IBAN: TR64 0001 5001 5800 7319 1517 35</p>
+        </div>
+      </div>
+
+      <h2>Yeni servis formu</h2>
+
+      <div class="card">
+        <div class="form-row">
+          <div style="flex:1;">
+            <label class="hint">Firma</label>
+            <select id="formFirmaSecim" style="width:100%;"></select>
+          </div>
+          <div style="flex:1;">
+            <label class="hint">Adres</label>
+            <select id="formLokasyonSecim" style="width:100%;"></select>
+          </div>
+          <div style="flex:1;">
+            <label class="hint">Tarih</label>
+            <input type="date" id="formTarih" style="width:100%;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-row">
+          <div style="flex:1;">
+            <label class="hint">Şikayet / arıza</label>
+            <textarea id="formSikayet" rows="3" style="width:100%;"></textarea>
+          </div>
+          <div style="flex:1;">
+            <label class="hint">Yapılan işlem</label>
+            <textarea id="formYapilanIslem" rows="3" style="width:100%;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">Kalemler</h3>
+          <button class="no-print" onclick="kalemEkle()">+ Kalem ekle</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:12%;">Seri no</th>
+              <th style="width:30%;">Malzeme / iş</th>
+              <th style="width:10%;">Adet</th>
+              <th style="width:16%;">Birim fiyat</th>
+              <th style="width:16%;">Toplam</th>
+              <th class="no-print" style="width:6%;"></th>
+            </tr>
+          </thead>
+          <tbody id="kalemTablosu"></tbody>
+        </table>
+      </div>
+
+      <div class="totals">
+        <div class="totals-box">
+          <div class="row"><span>Toplam</span><span id="araToplamGoster">0,00 ₺</span></div>
+          <div class="row">
+            <span>KDV %</span>
+            <input type="number" id="formKdv" value="20" style="width:64px; padding:3px 6px; text-align:right;" />
+          </div>
+          <div class="grand"><span>Genel toplam</span><span id="genelToplamGoster">0,00 ₺</span></div>
+        </div>
+      </div>
+
+      <div class="no-print" style="margin-top:18px; display:flex; gap:8px;">
+        <button onclick="onizlemeYeniForm()">Önizle</button>
+        <button class="primary" onclick="formKaydetVeYazdir()">Kaydet ve yazdır</button>
+      </div>
+    </div>
+
+    <!-- ============ GEÇMİŞ FORMLAR ============ -->
+    <div class="sayfa" id="sayfaGecmis">
+      <h2>Geçmiş formlar</h2>
+
+      <div class="card">
+        <div class="form-row">
+          <input id="gecmisFirmaAdi" placeholder="Firma adına göre ara" />
+          <input type="date" id="gecmisTarihBaslangic" />
+          <input type="date" id="gecmisTarihBitis" />
+          <button class="primary" onclick="gecmisAra()">Ara</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Form no</th>
+              <th>Firma</th>
+              <th>Adres</th>
+              <th>Tarih</th>
+              <th>Genel toplam</th>
+              <th style="width:170px;"></th>
+            </tr>
+          </thead>
+          <tbody id="gecmisListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ ÖNİZLEME ============ -->
+  <div id="onizlemeOverlay">
+    <div class="no-print" style="display:flex; gap:8px; margin-bottom:18px;">
+      <button onclick="onizlemeKapat()">← Düzenlemeye dön</button>
+      <button class="primary" onclick="window.print()">Yazdır</button>
+    </div>
+    <div id="onizlemeIcerik"></div>
+  </div>
+
+  <script>
+    let firmalar = [];
+    let urunKutuphanesi = [];
+    let duzenlenenFirmaId = null;
+    let duzenlenenLokasyonId = null;
+    let duzenlenenUrunId = null;
+    let formKalemleri = [];
+
+    function sekmeGoster(sekme) {
+      document.getElementById('sayfaFirmalar').classList.toggle('aktif', sekme === 'firmalar');
+      document.getElementById('sayfaServisFormu').classList.toggle('aktif', sekme === 'form');
+      document.getElementById('sayfaGecmis').classList.toggle('aktif', sekme === 'gecmis');
+      document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
+      document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
+      document.getElementById('sekmeGecmisBtn').classList.toggle('active', sekme === 'gecmis');
+      if (sekme === 'gecmis') gecmisAra();
+    }
+
+    // ---- Firmalar ----
+    async function firmaListesiniYenile() {
+      firmalar = await window.api.firmalariGetir();
+
+      const tbody = document.getElementById('firmaListesi');
+      tbody.innerHTML = firmalar.length
+        ? firmalar.map(f => {
+            if (f.id === duzenlenenFirmaId) {
+              return `
+                <tr>
+                  <td><input type="text" id="duz-firma-unvan-${f.id}" value="${f.unvan}" /></td>
+                  <td><input type="text" id="duz-firma-vkn-${f.id}" value="${f.vkn || ''}" /></td>
+                  <td>
+                    <button class="primary" onclick="firmaKaydet(${f.id})">Kaydet</button>
+                    <button onclick="firmaDuzenlemeIptal()">Vazgeç</button>
+                  </td>
+                </tr>`;
+            }
+            return `
+              <tr>
+                <td>${f.unvan}</td>
+                <td>${f.vkn || '-'}</td>
+                <td>
+                  <button onclick="firmaDuzenle(${f.id})">Düzenle</button>
+                  <button class="ghost-danger" onclick="firmaSilOnayla(${f.id})">Sil</button>
+                </td>
+              </tr>`;
+          }).join('')
+        : '<tr><td colspan="3" class="empty">Henüz firma eklenmedi</td></tr>';
+
+      [document.getElementById('firmaSecim'), document.getElementById('formFirmaSecim')].forEach(secim => {
+        const oncekiSecim = secim.value;
+        secim.innerHTML = firmalar.map(f => `<option value="${f.id}">${f.unvan}</option>`).join('');
+        if (oncekiSecim) secim.value = oncekiSecim;
+      });
+
+      lokasyonListesiniYenile();
+      formLokasyonListesiniYenile();
+    }
+
+    function firmaDuzenle(id) { duzenlenenFirmaId = id; firmaListesiniYenile(); }
+    function firmaDuzenlemeIptal() { duzenlenenFirmaId = null; firmaListesiniYenile(); }
+
+    async function firmaKaydet(id) {
+      const unvan = document.getElementById(`duz-firma-unvan-${id}`).value;
+      const vkn = document.getElementById(`duz-firma-vkn-${id}`).value;
+      if (!unvan) return;
+      await window.api.firmaGuncelle(id, unvan, vkn);
+      duzenlenenFirmaId = null;
+      firmaListesiniYenile();
+    }
+
+    async function firmaSilOnayla(id) {
+      if (!confirm('Bu firmayı ve bağlı tüm adreslerini silmek istediğine emin misin?')) return;
+      await window.api.firmaSil(id);
+      firmaListesiniYenile();
+    }
+
+    document.getElementById('ekleBtn').addEventListener('click', async () => {
+      const unvan = document.getElementById('unvan').value;
+      const vkn = document.getElementById('vkn').value;
+      if (!unvan) return;
+      await window.api.firmaEkle(unvan, vkn);
+      document.getElementById('unvan').value = '';
+      document.getElementById('vkn').value = '';
+      firmaListesiniYenile();
+    });
+
+    // ---- Adresler ----
+    async function lokasyonListesiniYenile() {
+      const firmaId = document.getElementById('firmaSecim').value;
+      const tbody = document.getElementById('lokasyonListesi');
+      if (!firmaId) { tbody.innerHTML = '<tr><td colspan="3" class="empty">Önce bir firma seç</td></tr>'; return; }
+      const lokasyonlar = await window.api.lokasyonlariGetir(Number(firmaId));
+      tbody.innerHTML = lokasyonlar.length
+        ? lokasyonlar.map(l => {
+            if (l.id === duzenlenenLokasyonId) {
+              return `
+                <tr>
+                  <td><input type="text" id="duz-lok-adres-${l.id}" value="${l.adres}" /></td>
+                  <td><input type="text" id="duz-lok-telefon-${l.id}" value="${l.telefon || ''}" /></td>
+                  <td>
+                    <button class="primary" onclick="lokasyonKaydet(${l.id})">Kaydet</button>
+                    <button onclick="lokasyonDuzenlemeIptal()">Vazgeç</button>
+                  </td>
+                </tr>`;
+            }
+            return `
+              <tr>
+                <td>${l.adres}</td>
+                <td>${l.telefon || '-'}</td>
+                <td>
+                  <button onclick="lokasyonDuzenle(${l.id})">Düzenle</button>
+                  <button class="ghost-danger" onclick="lokasyonSilOnayla(${l.id})">Sil</button>
+                </td>
+              </tr>`;
+          }).join('')
+        : '<tr><td colspan="3" class="empty">Bu firmaya ait adres yok</td></tr>';
+    }
+
+    function lokasyonDuzenle(id) { duzenlenenLokasyonId = id; lokasyonListesiniYenile(); }
+    function lokasyonDuzenlemeIptal() { duzenlenenLokasyonId = null; lokasyonListesiniYenile(); }
+
+    async function lokasyonKaydet(id) {
+      const adres = document.getElementById(`duz-lok-adres-${id}`).value;
+      const telefon = document.getElementById(`duz-lok-telefon-${id}`).value;
+      if (!adres) return;
+      await window.api.lokasyonGuncelle(id, adres, telefon);
+      duzenlenenLokasyonId = null;
+      lokasyonListesiniYenile();
+    }
+
+    async function lokasyonSilOnayla(id) {
+      if (!confirm('Bu adresi silmek istediğine emin misin?')) return;
+      await window.api.lokasyonSil(id);
+      lokasyonListesiniYenile();
+    }
+
+    document.getElementById('firmaSecim').addEventListener('change', lokasyonListesiniYenile);
+
+    document.getElementById('lokasyonEkleBtn').addEventListener('click', async () => {
+      const firmaId = document.getElementById('firmaSecim').value;
+      const adres = document.getElementById('adres').value;
+      const telefon = document.getElementById('telefon').value;
+      if (!firmaId || !adres) return;
+      await window.api.lokasyonEkle(Number(firmaId), adres, telefon);
+      document.getElementById('adres').value = '';
+      document.getElementById('telefon').value = '';
+      lokasyonListesiniYenile();
+    });
+
+    // ---- Ürünler ----
+    async function urunListesiniYenile() {
+      urunKutuphanesi = await window.api.urunleriGetir();
+      const tbody = document.getElementById('urunListesi');
+
+      if (!urunKutuphanesi.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">Henüz ürün eklenmedi</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = urunKutuphanesi.map(u => {
+        if (u.id === duzenlenenUrunId) {
+          return `
+            <tr>
+              <td><input type="text" id="duz-ad-${u.id}" value="${u.ad}" /></td>
+              <td><input type="number" step="0.01" id="duz-fiyat-${u.id}" value="${u.birim_fiyat}" /></td>
+              <td><input type="number" id="duz-kdv-${u.id}" value="${u.kdv_orani}" style="max-width:64px;" /></td>
+              <td>
+                <button class="primary" onclick="urunKaydet(${u.id})">Kaydet</button>
+                <button onclick="duzenlemeIptal()">Vazgeç</button>
+              </td>
+            </tr>`;
+        }
+        return `
+          <tr>
+            <td>${u.ad}</td>
+            <td>${Number(u.birim_fiyat).toFixed(2)} ₺</td>
+            <td>%${u.kdv_orani}</td>
+            <td>
+              <button onclick="urunDuzenle(${u.id})">Düzenle</button>
+              <button class="ghost-danger" onclick="urunSilOnayla(${u.id})">Sil</button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    function urunDuzenle(id) { duzenlenenUrunId = id; urunListesiniYenile(); }
+    function duzenlemeIptal() { duzenlenenUrunId = null; urunListesiniYenile(); }
+
+    async function urunKaydet(id) {
+      const ad = document.getElementById(`duz-ad-${id}`).value;
+      const fiyat = parseFloat(document.getElementById(`duz-fiyat-${id}`).value) || 0;
+      const kdv = parseFloat(document.getElementById(`duz-kdv-${id}`).value) || 0;
+      if (!ad) return;
+      await window.api.urunGuncelle(id, ad, fiyat, kdv);
+      duzenlenenUrunId = null;
+      urunListesiniYenile();
+    }
+
+    async function urunSilOnayla(id) {
+      if (!confirm('Bu ürünü silmek istediğine emin misin?')) return;
+      await window.api.urunSil(id);
+      urunListesiniYenile();
+    }
+
+    async function tlKarsiligi(tutar, paraBirimi) {
+      if (paraBirimi === 'TRY') return tutar;
+      const kurBilgisi = document.getElementById('kurBilgisi');
+      kurBilgisi.textContent = 'Güncel kur alınıyor...';
+      const response = await fetch(`https://open.er-api.com/v6/latest/${paraBirimi}`);
+      const data = await response.json();
+      const kur = data.rates.TRY;
+      kurBilgisi.textContent = `Kullanılan kur: 1 ${paraBirimi} = ${kur.toFixed(4)} TL`;
+      return tutar * kur;
+    }
+
+    document.getElementById('urunEkleBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('urunEkleBtn');
+      const ad = document.getElementById('urunAd').value;
+      const girilenFiyat = parseFloat(document.getElementById('urunFiyat').value) || 0;
+      const paraBirimi = document.getElementById('paraBirimi').value;
+      const kdv = parseFloat(document.getElementById('urunKdv').value) || 20;
+      if (!ad || !girilenFiyat) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Ekleniyor...';
+      try {
+        const tlFiyat = await tlKarsiligi(girilenFiyat, paraBirimi);
+        await window.api.urunEkle(ad, tlFiyat, kdv);
+        document.getElementById('urunAd').value = '';
+        document.getElementById('urunFiyat').value = '';
+        urunListesiniYenile();
+      } catch (err) {
+        document.getElementById('kurBilgisi').textContent = 'Kur alınamadı, internet bağlantını kontrol et.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ürün ekle';
+      }
+    });
+
+    // ---- Servis Formu: adres filtreleme ----
+    async function formLokasyonListesiniYenile() {
+      const firmaId = document.getElementById('formFirmaSecim').value;
+      const secim = document.getElementById('formLokasyonSecim');
+      if (!firmaId) { secim.innerHTML = ''; return; }
+      const lokasyonlar = await window.api.lokasyonlariGetir(Number(firmaId));
+      secim.innerHTML = lokasyonlar.map(l => `<option value="${l.id}">${l.adres}</option>`).join('');
+    }
+    document.getElementById('formFirmaSecim').addEventListener('change', formLokasyonListesiniYenile);
+
+    // ---- Servis Formu: kalemler ----
+    function kalemEkle() {
+      formKalemleri.push({ seriNo: '', urunId: '', aciklama: '', adet: 1, birimFiyat: 0 });
+      kalemTablosunuCiz();
+    }
+
+    function kalemSil(index) {
+      formKalemleri.splice(index, 1);
+      kalemTablosunuCiz();
+    }
+
+    function urunSecildi(index, urunId) {
+      const urun = urunKutuphanesi.find(u => u.id === Number(urunId));
+      if (urun) {
+        formKalemleri[index].urunId = urun.id;
+        formKalemleri[index].aciklama = urun.ad;
+        formKalemleri[index].birimFiyat = urun.birim_fiyat;
+      } else {
+        formKalemleri[index].urunId = '';
+      }
+      kalemTablosunuCiz();
+    }
+
+    function kalemGuncelle(index, alan, deger) {
+      formKalemleri[index][alan] = (alan === 'adet' || alan === 'birimFiyat') ? (parseFloat(deger) || 0) : deger;
+
+      if (alan === 'adet' || alan === 'birimFiyat') {
+        const k = formKalemleri[index];
+        const satirToplam = document.getElementById(`satirToplam-${index}`);
+        if (satirToplam) satirToplam.textContent = (k.adet * k.birimFiyat).toFixed(2) + ' ₺';
+      }
+      toplamlariHesapla();
+    }
+
+    function kalemTablosunuCiz() {
+      const tbody = document.getElementById('kalemTablosu');
+      tbody.innerHTML = formKalemleri.map((k, i) => `
+        <tr>
+          <td><input type="text" value="${k.seriNo}" oninput="kalemGuncelle(${i}, 'seriNo', this.value)" /></td>
+          <td>
+            <select onchange="urunSecildi(${i}, this.value)" style="margin-bottom:4px;">
+              <option value="">— elle gir —</option>
+              ${urunKutuphanesi.map(u => `<option value="${u.id}" ${k.urunId == u.id ? 'selected' : ''}>${u.ad}</option>`).join('')}
+            </select>
+            <input type="text" value="${k.aciklama}" placeholder="Açıklama" oninput="kalemGuncelle(${i}, 'aciklama', this.value)" />
+          </td>
+          <td><input type="number" value="${k.adet}" style="width:56px;" oninput="kalemGuncelle(${i}, 'adet', this.value)" /></td>
+          <td><input type="number" step="0.01" value="${k.birimFiyat}" style="width:84px;" oninput="kalemGuncelle(${i}, 'birimFiyat', this.value)" /></td>
+          <td id="satirToplam-${i}">${(k.adet * k.birimFiyat).toFixed(2)} ₺</td>
+          <td class="no-print"><button class="ghost-danger" onclick="kalemSil(${i})">Sil</button></td>
+        </tr>
+      `).join('');
+
+      toplamlariHesapla();
+    }
+
+    function toplamlariHesapla() {
+      const araToplam = formKalemleri.reduce((sum, k) => sum + (k.adet * k.birimFiyat), 0);
+      const kdvOrani = parseFloat(document.getElementById('formKdv').value) || 0;
+      const genelToplam = araToplam + (araToplam * kdvOrani / 100);
+
+      document.getElementById('araToplamGoster').textContent = araToplam.toFixed(2) + ' ₺';
+      document.getElementById('genelToplamGoster').textContent = genelToplam.toFixed(2) + ' ₺';
+    }
+
+    document.getElementById('formKdv').addEventListener('input', toplamlariHesapla);
+
+    async function formKaydetVeYazdir() {
+      const firmaId = document.getElementById('formFirmaSecim').value;
+      const lokasyonId = document.getElementById('formLokasyonSecim').value;
+      const tarih = document.getElementById('formTarih').value;
+
+      if (!firmaId || !lokasyonId || !tarih) {
+        alert('Firma, adres ve tarih seçmen gerekiyor.');
+        return;
+      }
+      if (!formKalemleri.length) {
+        alert('En az bir kalem eklemen gerekiyor.');
+        return;
+      }
+
+      const form = {
+        firmaId: Number(firmaId),
+        lokasyonId: Number(lokasyonId),
+        tarih,
+        sikayet: document.getElementById('formSikayet').value,
+        yapilanIslem: document.getElementById('formYapilanIslem').value,
+        kdvOrani: parseFloat(document.getElementById('formKdv').value) || 0,
+        kalemler: formKalemleri,
+      };
+
+      await window.api.formKaydet(form);
+      window.print();
+    }
+
+    // ---- Önizleme ----
+    function letterheadHtml(rozet) {
+      return `
+        <div class="letterhead">
+          <div>
+            <img src="assets/logo.png" alt="Petsis" />
+            <p><strong>Kıvanç Buğdaycı</strong></p>
+            <p>2. San. Sit. Kazımdirlik Mh. 351 Sk. Afa İş Merkezi No:7/312 Bornova/İzmir</p>
+            <p>Tel: 0538 342 59 02 &nbsp;|&nbsp; Vakıfbank IBAN: TR64 0001 5001 5800 7319 1517 35</p>
+          </div>
+          ${rozet ? `
+          <div class="form-badge">
+            <div class="no">${rozet.formNo || ''}</div>
+            <div class="tarih">${rozet.tarih || ''}</div>
+          </div>` : ''}
+        </div>`;
+    }
+
+    function kalemleriNormalize(kalemler) {
+      return kalemler.map(k => ({
+        seriNo: k.seriNo ?? k.seri_no ?? '',
+        aciklama: k.aciklama,
+        adet: k.adet,
+        birimFiyat: k.birimFiyat ?? k.birim_fiyat,
+      }));
+    }
+
+    function formOnizlemeHtml(data) {
+      const kalemler = kalemleriNormalize(data.kalemler);
+      const araToplam = kalemler.reduce((s, k) => s + (k.adet * k.birimFiyat), 0);
+      const kdvOrani = data.kdvOrani || 0;
+      const kdvTutari = araToplam * kdvOrani / 100;
+      const genelToplam = araToplam + kdvTutari;
+
+      return `
+        ${letterheadHtml({ formNo: data.formNo, tarih: data.tarih })}
+        <h2>Servis Formu ${data.formNo ? '' : '(taslak)'}</h2>
+        <div class="card">
+          <div class="form-row">
+            <div style="flex:1;"><span class="hint">Firma</span><p style="margin:0;">${data.firmaUnvan}</p></div>
+            <div style="flex:1;"><span class="hint">Adres</span><p style="margin:0;">${data.lokasyonAdres}</p></div>
+            <div style="flex:1;"><span class="hint">Tarih</span><p style="margin:0;">${data.tarih}</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="form-row">
+            <div style="flex:1;"><span class="hint">Şikayet / arıza</span><p style="margin:0;">${data.sikayet || '-'}</p></div>
+            <div style="flex:1;"><span class="hint">Yapılan işlem</span><p style="margin:0;">${data.yapilanIslem || '-'}</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Kalemler</h3>
+          <table>
+            <thead><tr><th>Seri no</th><th>Malzeme / iş</th><th>Adet</th><th>Birim fiyat</th><th>Toplam</th></tr></thead>
+            <tbody>
+              ${kalemler.map(k => `
+                <tr>
+                  <td>${k.seriNo || '-'}</td>
+                  <td>${k.aciklama}</td>
+                  <td>${k.adet}</td>
+                  <td>${Number(k.birimFiyat).toFixed(2)} ₺</td>
+                  <td>${(k.adet * k.birimFiyat).toFixed(2)} ₺</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="totals">
+          <div class="totals-box">
+            <div class="row"><span>Toplam</span><span>${araToplam.toFixed(2)} ₺</span></div>
+            <div class="row"><span>KDV %${kdvOrani}</span><span>${kdvTutari.toFixed(2)} ₺</span></div>
+            <div class="grand"><span>Genel toplam</span><span>${genelToplam.toFixed(2)} ₺</span></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:40px; margin-top:50px;">
+          <div style="flex:1; border-top:1px solid #9ca3af; padding-top:8px;">
+            <p style="margin:0 0 26px; font-size:10.5px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em;">Servis Yetkilisi</p>
+            <p style="margin:0; font-size:11.5px;">Adı Soyadı: ..................................</p>
+            <p style="margin:18px 0 0; font-size:11.5px;">İmza: ..................................</p>
+          </div>
+          <div style="flex:1; border-top:1px solid #9ca3af; padding-top:8px;">
+            <p style="margin:0 0 26px; font-size:10.5px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em;">İstasyon Yetkilisi</p>
+            <p style="margin:0; font-size:11.5px;">Adı Soyadı: ..................................</p>
+            <p style="margin:18px 0 0; font-size:11.5px;">İmza: ..................................</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function onizlemeAc(html) {
+      document.getElementById('onizlemeIcerik').innerHTML = html;
+      document.body.classList.add('onizleme-acik');
+    }
+
+    function onizlemeKapat() {
+      document.body.classList.remove('onizleme-acik');
+    }
+
+    function onizlemeYeniForm() {
+      const firmaId = document.getElementById('formFirmaSecim').value;
+      const lokasyonId = document.getElementById('formLokasyonSecim').value;
+      const tarih = document.getElementById('formTarih').value;
+
+      if (!firmaId || !lokasyonId || !tarih || !formKalemleri.length) {
+        alert('Önizleme için firma, adres, tarih ve en az bir kalem gerekiyor.');
+        return;
+      }
+
+      const firma = firmalar.find(f => f.id === Number(firmaId));
+      const lokasyonSelect = document.getElementById('formLokasyonSecim');
+      const lokasyonAdres = lokasyonSelect.options[lokasyonSelect.selectedIndex]?.textContent || '';
+
+      const html = formOnizlemeHtml({
+        firmaUnvan: firma ? firma.unvan : '',
+        lokasyonAdres,
+        tarih,
+        sikayet: document.getElementById('formSikayet').value,
+        yapilanIslem: document.getElementById('formYapilanIslem').value,
+        kalemler: formKalemleri,
+        kdvOrani: parseFloat(document.getElementById('formKdv').value) || 0,
+      });
+      onizlemeAc(html);
+    }
+
+    // ---- Geçmiş formlar ----
+    async function gecmisAra() {
+      const firmaAdi = document.getElementById('gecmisFirmaAdi').value;
+      const baslangic = document.getElementById('gecmisTarihBaslangic').value;
+      const bitis = document.getElementById('gecmisTarihBitis').value;
+      const sonuclar = await window.api.formlariGetir({ firmaAdi, tarihBaslangic: baslangic, tarihBitis: bitis });
+      gecmisSonuclariCiz(sonuclar);
+    }
+
+    function gecmisSonuclariCiz(sonuclar) {
+      const tbody = document.getElementById('gecmisListesi');
+      tbody.innerHTML = sonuclar.length
+        ? sonuclar.map(f => `
+          <tr>
+            <td>${f.form_no}</td>
+            <td>${f.firma_unvan}</td>
+            <td>${f.lokasyon_adres}</td>
+            <td>${f.tarih}</td>
+            <td>${f.genelToplam.toFixed(2)} ₺</td>
+            <td>
+              <button onclick="formGoruntule(${f.id})">Görüntüle</button>
+              <button class="ghost-danger" onclick="formSilOnayla(${f.id})">Sil</button>
+            </td>
+          </tr>`).join('')
+        : '<tr><td colspan="6" class="empty">Sonuç bulunamadı</td></tr>';
+    }
+
+    async function formGoruntule(formId) {
+      const { form, kalemler } = await window.api.formDetayGetir(formId);
+      const html = formOnizlemeHtml({
+        formNo: form.form_no,
+        firmaUnvan: form.firma_unvan,
+        lokasyonAdres: form.lokasyon_adres,
+        tarih: form.tarih,
+        sikayet: form.sikayet,
+        yapilanIslem: form.yapilan_islem,
+        kalemler,
+        kdvOrani: form.kdv_orani,
+      });
+      onizlemeAc(html);
+    }
+
+    async function formSilOnayla(id) {
+      if (!confirm('Bu servis formunu kalıcı olarak silmek istediğine emin misin?')) return;
+      await window.api.formSil(id);
+      gecmisAra();
+    }
+
+    // ---- Başlangıç ----
+    document.getElementById('formTarih').value = new Date().toISOString().split('T')[0];
+    firmaListesiniYenile();
+    urunListesiniYenile();
+  </script>
+</body>
+</html>

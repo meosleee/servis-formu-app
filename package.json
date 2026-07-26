@@ -1,0 +1,38 @@
+{
+  "name": "servis-formu-app",
+  "version": "1.0.0",
+  "description": "Petsis servis formu uygulaması",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.petsis.servisformu",
+    "productName": "Petsis Servis Formu",
+    "files": [
+      "main.js",
+      "preload.js",
+      "db.js",
+      "index.html",
+      "assets/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.business"
+    },
+"win": {
+      "target": ["portable"]
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  }
+}
