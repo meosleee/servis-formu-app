@@ -17,12 +17,13 @@
     "compression": "normal",
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
-    "files": [
+ "files": [
       "main.js",
       "preload.js",
       "supabase.js",
       "index.html",
-      "assets/**/*"
+      "assets/**/*",
+      "vendor/**/*"
     ],
     "mac": {
       "target": "dmg",
