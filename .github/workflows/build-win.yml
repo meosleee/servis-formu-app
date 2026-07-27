@@ -13,21 +13,19 @@ jobs:
         with:
           node-version: 22
 
-      - name: Update node-gyp
-        shell: pwsh
-        run: |
-          npm install -g node-gyp@latest
-          echo "npm_config_node_gyp=$(npm prefix -g)\node_modules\node-gyp\bin\node-gyp.js" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
       - name: Install dependencies
         run: npm install
-        env:
-          npm_config_msvs_version: 2022
+
+      - name: Fetch prebuilt better-sqlite3 for Electron
+        shell: pwsh
+        run: |
+          cd node_modules/better-sqlite3
+          npx prebuild-install --runtime=electron --target=43.2.0 --arch=x64 --platform=win32 --verbose
 
       - name: Build portable exe
         run: npm run dist:win
         env:
-          npm_config_msvs_version: 2022
+          ELECTRON_BUILDER_SKIP_REBUILD: "true"
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
