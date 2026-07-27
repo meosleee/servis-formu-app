@@ -16,12 +16,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Fetch prebuilt better-sqlite3 for Electron
-        shell: pwsh
-        run: |
-          cd node_modules/better-sqlite3
-          npx prebuild-install --runtime=electron --target=43.2.0 --arch=x64 --platform=win32 --verbose
-
       - name: Build portable exe
         run: npm run dist:win
         env:
