@@ -14,13 +14,13 @@
   "build": {
     "appId": "com.petsis.servisformu",
     "productName": "Petsis Servis Formu",
-    "compression": "store",
+    "compression": "normal",
     "npmRebuild": false,
     "buildDependenciesFromSource": false,
     "files": [
       "main.js",
       "preload.js",
-      "db.js",
+      "supabase.js",
       "index.html",
       "assets/**/*"
     ],
@@ -30,8 +30,15 @@
     },
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   },
   "overrides": {
@@ -42,6 +49,6 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.1"
+    "@supabase/supabase-js": "^2.110.9"
   }
 }
