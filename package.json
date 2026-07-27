@@ -2,6 +2,7 @@
   "name": "servis-formu-app",
   "version": "1.0.0",
   "description": "Petsis servis formu uygulaması",
+  "author": "Batuhan",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -24,15 +25,20 @@
       "target": "dmg",
       "category": "public.app-category.business"
     },
-"win": {
-      "target": ["portable"]
+    "win": {
+      "target": [
+        "portable"
+      ]
     }
+  },
+  "overrides": {
+    "node-gyp": "^11.0.0"
   },
   "devDependencies": {
     "electron": "^43.2.0",
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^13.0.1"
   }
 }
