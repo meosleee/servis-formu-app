@@ -17,7 +17,7 @@ jobs:
         run: npm install
 
       - name: Build portable exe
-        run: npm run dist:win
+        run: npm run dist:win -- --buildsh never
         env:
           ELECTRON_BUILDER_SKIP_REBUILD: "true"
 
