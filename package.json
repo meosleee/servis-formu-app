@@ -14,6 +14,7 @@
   "build": {
     "appId": "com.petsis.servisformu",
     "productName": "Petsis Servis Formu",
+    "compression": "store",
     "files": [
       "main.js",
       "preload.js",
@@ -26,9 +27,7 @@
       "category": "public.app-category.business"
     },
     "win": {
-      "target": [
-        "portable"
-      ]
+      "target": ["portable"]
     }
   },
   "overrides": {
@@ -39,6 +38,6 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.1"
+    "better-sqlite3": "^12.4.6"
   }
 }
