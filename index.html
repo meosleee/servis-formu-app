@@ -146,6 +146,7 @@
     <button class="active" id="sekmeFirmalarBtn" onclick="sekmeGoster('firmalar')">Firmalar</button>
     <button id="sekmeFormBtn" onclick="sekmeGoster('form')">Servis formu</button>
     <button id="sekmeGecmisBtn" onclick="sekmeGoster('gecmis')">Geçmiş formlar</button>
+    <button id="sekmeFaturaKesBtn" onclick="sekmeGoster('faturaKes')">Fatura Kes</button>
     <button id="sekmeAyarlarBtn" onclick="sekmeGoster('ayarlar')">Ayarlar</button>
     <div class="spacer"></div>
     <span id="senkronDurum">🔴 Çevrimdışı</span>
@@ -281,6 +282,59 @@
       </div>
     </div>
 
+    <div class="sayfa" id="sayfaFaturaKes">
+      <h2>Fatura Kes</h2>
+      <p class="hint" style="text-transform:none; margin-bottom:10px;">
+        Servis formundan bağımsız, doğrudan e-Arşiv'e gönderilecek bir fatura oluştur.
+        Kalem adları burada tamamen serbest — servis formundaki notlara dokunmaz.
+      </p>
+      <div class="card">
+        <div class="form-row">
+          <div style="flex:1;"><label class="hint">Firma</label><select id="faturaFirmaSecim" style="width:100%;"></select></div>
+          <div style="flex:1;"><label class="hint">Adres (opsiyonel)</label><select id="faturaLokasyonSecim" style="width:100%;"></select></div>
+          <div style="flex:1;"><label class="hint">Tarih</label><input type="date" id="faturaTarih" style="width:100%;" /></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">Kalemler</h3>
+          <button onclick="faturaKalemEkle()">+ Kalem ekle</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36%;">Ürün / hizmet</th>
+              <th style="width:12%;">Adet</th>
+              <th style="width:16%;">Birim fiyat</th>
+              <th style="width:16%;">Toplam</th>
+              <th style="width:8%;"></th>
+            </tr>
+          </thead>
+          <tbody id="faturaKalemTablosu"></tbody>
+        </table>
+      </div>
+      <div class="totals">
+        <div class="totals-box">
+          <div class="row"><span>Toplam</span><span id="faturaAraToplamGoster">0,00 ₺</span></div>
+          <div class="row"><span>KDV %</span><input type="number" id="faturaKdv" value="20" style="width:64px; padding:3px 6px; text-align:right;" /></div>
+          <div class="grand"><span>Genel toplam</span><span id="faturaGenelToplamGoster">0,00 ₺</span></div>
+        </div>
+      </div>
+      <div style="margin-top:18px;">
+        <button class="primary" onclick="manuelFaturaKes()">Faturayı Kes</button>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <h3>Manuel kesilen faturalar</h3>
+        <table>
+          <thead>
+            <tr><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:170px;"></th></tr>
+          </thead>
+          <tbody id="manuelFaturaListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="sayfa" id="sayfaAyarlar">
       <h2>Ayarlar</h2>
       <div class="card">
@@ -305,6 +359,20 @@
         </div>
         <p class="hint" id="earsivAyarDurum" style="text-transform:none;"></p>
       </div>
+      <div class="card">
+        <h3>Fatura notu</h3>
+        <p class="hint" style="text-transform:none; margin-bottom:10px;">
+          Kestiğin her e-Arşiv faturasının "Not" alanına otomatik eklenir (örn. IBAN).
+          Boş bırakırsan GİB'in varsayılanı (tutarın yazıyla hali) kullanılır.
+        </p>
+        <div class="form-row">
+          <textarea id="earsivFaturaNotu" rows="2" style="width:100%;" placeholder="Örn: Banka adı ve IBAN"></textarea>
+        </div>
+        <div class="form-row">
+          <button class="primary" id="earsivFaturaNotuKaydetBtn">Kaydet</button>
+        </div>
+        <p class="hint" id="earsivFaturaNotuDurum" style="text-transform:none;"></p>
+      </div>
     </div>
 
   </div>
@@ -315,6 +383,7 @@
       <p class="hint" style="text-transform:none;">
         Telefonuna gelen kodu gir. Onayladığında fatura GİB'e resmi olarak gönderilir ve GERİ ALINAMAZ.
       </p>
+      <p id="earsivSmsFaturaBilgi" style="font-size:12px; text-transform:none;"></p>
       <input id="earsivSmsKod" placeholder="SMS kodu" />
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="primary" onclick="earsivSmsOnayla()">Onayla ve imzala</button>
@@ -325,9 +394,13 @@
   </div>
 
   <div id="onizlemeOverlay">
-    <div class="no-print" style="display:flex; gap:8px; margin-bottom:18px;">
+    <div class="no-print" id="onizlemeButonlarServis" style="display:flex; gap:8px; margin-bottom:18px;">
       <button onclick="onizlemeKapat()">← Düzenlemeye dön</button>
       <button class="primary" onclick="window.print()">Yazdır</button>
+    </div>
+    <div class="no-print" id="onizlemeButonlarFatura" style="display:none; gap:8px; margin-bottom:18px;">
+      <button class="primary" id="onizlemeFaturaOnaylaBtn" onclick="onizlemeFaturaOnayla()">Onayla, Faturayı Kes</button>
+      <button onclick="onizlemeKapat()">Kapat</button>
     </div>
     <div id="onizlemeIcerik"></div>
   </div>
@@ -335,7 +408,7 @@
   <script>
     const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const TABLOLAR = ['firmalar', 'lokasyonlar', 'urunler', 'servis_formlari', 'form_kalemleri'];
+    const TABLOLAR = ['firmalar', 'lokasyonlar', 'urunler', 'servis_formlari', 'form_kalemleri', 'manuel_faturalar', 'manuel_fatura_kalemleri'];
     let duzenlenenFirmaId = null;
     let duzenlenenLokasyonId = null;
     let duzenlenenUrunId = null;
@@ -411,7 +484,7 @@
       try {
         // 1) Kuyruğu gönder (sıra önemli: firmalar önce, kalemler sonra — FK için)
         let kuyruk = kuyrukOku();
-        const sira = { firmalar: 1, lokasyonlar: 2, urunler: 3, servis_formlari: 4, form_kalemleri: 5 };
+        const sira = { firmalar: 1, lokasyonlar: 2, urunler: 3, servis_formlari: 4, form_kalemleri: 5, manuel_faturalar: 6, manuel_fatura_kalemleri: 7 };
         kuyruk.sort((a, b) => sira[a.tablo] - sira[b.tablo]);
 
         for (const islem of [...kuyruk]) {
@@ -499,12 +572,15 @@
       document.getElementById('sayfaFirmalar').classList.toggle('aktif', sekme === 'firmalar');
       document.getElementById('sayfaServisFormu').classList.toggle('aktif', sekme === 'form');
       document.getElementById('sayfaGecmis').classList.toggle('aktif', sekme === 'gecmis');
+      document.getElementById('sayfaFaturaKes').classList.toggle('aktif', sekme === 'faturaKes');
       document.getElementById('sayfaAyarlar').classList.toggle('aktif', sekme === 'ayarlar');
       document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
       document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
       document.getElementById('sekmeGecmisBtn').classList.toggle('active', sekme === 'gecmis');
+      document.getElementById('sekmeFaturaKesBtn').classList.toggle('active', sekme === 'faturaKes');
       document.getElementById('sekmeAyarlarBtn').classList.toggle('active', sekme === 'ayarlar');
       if (sekme === 'gecmis') gecmisAra();
+      if (sekme === 'faturaKes') manuelFaturaListesiYenile();
       if (sekme === 'ayarlar') earsivAyarlariYukle();
     }
 
@@ -512,6 +588,7 @@
       firmaListesiniYenile();
       urunListesiniYenile();
       if (document.getElementById('sayfaGecmis').classList.contains('aktif')) gecmisAra();
+      if (document.getElementById('sayfaFaturaKes').classList.contains('aktif')) manuelFaturaListesiYenile();
     }
 
     // ============ FİRMALAR (yerelden okur) ============
@@ -544,7 +621,7 @@
           }).join('')
         : '<tr><td colspan="3" class="empty">Henüz firma eklenmedi</td></tr>';
 
-      [document.getElementById('firmaSecim'), document.getElementById('formFirmaSecim')].forEach(secim => {
+      [document.getElementById('firmaSecim'), document.getElementById('formFirmaSecim'), document.getElementById('faturaFirmaSecim')].forEach(secim => {
         const oncekiSecim = secim.value;
         secim.innerHTML = firmalar.map(f => `<option value="${f.id}">${f.unvan}</option>`).join('');
         if (oncekiSecim && firmalar.some(f => f.id === oncekiSecim)) secim.value = oncekiSecim;
@@ -552,6 +629,7 @@
 
       lokasyonListesiniYenile();
       formLokasyonListesiniYenile();
+      faturaLokasyonListesiniYenile();
     }
 
     function firmaDuzenle(id) { duzenlenenFirmaId = id; firmaListesiniYenile(); }
@@ -850,6 +928,142 @@
       setTimeout(() => window.print(), 300);
     }
 
+    // ============ FATURA KES (bağımsız, servis formundan kopuk) ============
+    let faturaKalemleri = [];
+
+    function faturaLokasyonListesiniYenile() {
+      const firmaId = document.getElementById('faturaFirmaSecim').value;
+      const secim = document.getElementById('faturaLokasyonSecim');
+      if (!firmaId) { secim.innerHTML = '<option value="">— adres yok —</option>'; return; }
+      const lokasyonlar = aktifler('lokasyonlar').filter(l => l.firma_id === firmaId);
+      secim.innerHTML = '<option value="">— adres yok —</option>' + lokasyonlar.map(l => `<option value="${l.id}">${l.adres}</option>`).join('');
+    }
+    document.getElementById('faturaFirmaSecim').addEventListener('change', faturaLokasyonListesiniYenile);
+
+    function faturaKalemEkle() {
+      faturaKalemleri.push({ urunId: '', aciklama: '', adet: 1, birimFiyat: 0 });
+      faturaKalemTablosunuCiz();
+    }
+    function faturaKalemSil(index) {
+      faturaKalemleri.splice(index, 1);
+      faturaKalemTablosunuCiz();
+    }
+    function faturaUrunSecildi(index, urunId) {
+      const urun = aktifler('urunler').find(u => u.id === urunId);
+      if (urun) {
+        faturaKalemleri[index].urunId = urun.id;
+        faturaKalemleri[index].aciklama = urun.ad;
+        faturaKalemleri[index].birimFiyat = urun.birim_fiyat;
+      } else {
+        faturaKalemleri[index].urunId = '';
+      }
+      faturaKalemTablosunuCiz();
+    }
+    function faturaKalemGuncelle(index, alan, deger) {
+      faturaKalemleri[index][alan] = (alan === 'adet' || alan === 'birimFiyat') ? (parseFloat(deger) || 0) : deger;
+      if (alan === 'adet' || alan === 'birimFiyat') {
+        const k = faturaKalemleri[index];
+        const satirToplam = document.getElementById(`faturaSatirToplam-${index}`);
+        if (satirToplam) satirToplam.textContent = (k.adet * k.birimFiyat).toFixed(2) + ' ₺';
+      }
+      faturaToplamlariHesapla();
+    }
+    function faturaKalemTablosunuCiz() {
+      const urunler = aktifler('urunler');
+      const tbody = document.getElementById('faturaKalemTablosu');
+      tbody.innerHTML = faturaKalemleri.map((k, i) => `
+        <tr>
+          <td>
+            <select onchange="faturaUrunSecildi(${i}, this.value)" style="margin-bottom:4px;">
+              <option value="">— elle gir —</option>
+              ${urunler.map(u => `<option value="${u.id}" ${k.urunId == u.id ? 'selected' : ''}>${u.ad}</option>`).join('')}
+            </select>
+            <input type="text" value="${k.aciklama}" placeholder="Fatura satırı adı" oninput="faturaKalemGuncelle(${i}, 'aciklama', this.value)" />
+          </td>
+          <td><input type="number" value="${k.adet}" style="width:56px;" oninput="faturaKalemGuncelle(${i}, 'adet', this.value)" /></td>
+          <td><input type="number" step="0.01" value="${k.birimFiyat}" style="width:84px;" oninput="faturaKalemGuncelle(${i}, 'birimFiyat', this.value)" /></td>
+          <td id="faturaSatirToplam-${i}">${(k.adet * k.birimFiyat).toFixed(2)} ₺</td>
+          <td><button class="ghost-danger" onclick="faturaKalemSil(${i})">Sil</button></td>
+        </tr>
+      `).join('');
+      faturaToplamlariHesapla();
+    }
+    function faturaToplamlariHesapla() {
+      const araToplam = faturaKalemleri.reduce((sum, k) => sum + (k.adet * k.birimFiyat), 0);
+      const kdvOrani = parseFloat(document.getElementById('faturaKdv').value) || 0;
+      const genelToplam = araToplam + (araToplam * kdvOrani / 100);
+      document.getElementById('faturaAraToplamGoster').textContent = araToplam.toFixed(2) + ' ₺';
+      document.getElementById('faturaGenelToplamGoster').textContent = genelToplam.toFixed(2) + ' ₺';
+    }
+    document.getElementById('faturaKdv').addEventListener('input', faturaToplamlariHesapla);
+
+    function manuelFaturaKes() {
+      const firmaId = document.getElementById('faturaFirmaSecim').value;
+      const lokasyonId = document.getElementById('faturaLokasyonSecim').value || null;
+      const tarih = document.getElementById('faturaTarih').value;
+
+      if (!firmaId || !tarih) { alert('Firma ve tarih seçmen gerekiyor.'); return; }
+      if (!faturaKalemleri.length) { alert('En az bir kalem eklemen gerekiyor.'); return; }
+
+      const kdvOrani = parseFloat(document.getElementById('faturaKdv').value) || 0;
+      const faturaId = crypto.randomUUID();
+
+      kayitUpsert('manuel_faturalar', {
+        id: faturaId, firma_id: firmaId, lokasyon_id: lokasyonId,
+        tarih, kdv_orani: kdvOrani, deleted: false,
+      });
+      faturaKalemleri.forEach(k => {
+        kayitUpsert('manuel_fatura_kalemleri', {
+          id: crypto.randomUUID(), fatura_id: faturaId, urun_id: k.urunId || null,
+          aciklama: k.aciklama, adet: k.adet, birim_fiyat: k.birimFiyat, deleted: false,
+        });
+      });
+
+      faturaKalemleri = [];
+      faturaKalemTablosunuCiz();
+      document.getElementById('faturaTarih').value = new Date().toISOString().split('T')[0];
+
+      earsivFaturaKesTikla('manuel_faturalar', faturaId);
+    }
+
+    function manuelFaturaListesiYenile() {
+      const firmalar = yerelOku('firmalar');
+      const kalemler = yerelOku('manuel_fatura_kalemleri');
+
+      const sonuclar = aktifler('manuel_faturalar').map(f => {
+        const faturaKalem = kalemler.filter(k => k.fatura_id === f.id && !k.deleted);
+        const araToplam = faturaKalem.reduce((s, k) => s + (k.adet * k.birim_fiyat), 0);
+        return {
+          ...f,
+          firma_unvan: firmalar.find(x => x.id === f.firma_id)?.unvan || '-',
+          firma_vkn: firmalar.find(x => x.id === f.firma_id)?.vkn || '',
+          genelToplam: araToplam + (araToplam * (f.kdv_orani || 0) / 100),
+        };
+      }).sort((a, b) => (b.tarih || '').localeCompare(a.tarih || ''));
+
+      const tbody = document.getElementById('manuelFaturaListesi');
+      tbody.innerHTML = sonuclar.length
+        ? sonuclar.map(f => `
+          <tr>
+            <td>${f.tarih}</td>
+            <td>${f.firma_unvan}</td>
+            <td>${f.genelToplam.toFixed(2)} ₺</td>
+            <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
+            <td>
+              ${earsivButonuUret(f, 'manuel_faturalar')}
+              <button class="ghost-danger" onclick="manuelFaturaSilOnayla('${f.id}')">Sil</button>
+            </td>
+          </tr>`).join('')
+        : '<tr><td colspan="5" class="empty">Henüz manuel fatura kesilmedi</td></tr>';
+    }
+
+    function manuelFaturaSilOnayla(id) {
+      if (!confirm('Bu faturayı kalıcı olarak silmek istediğine emin misin?')) return;
+      yerelOku('manuel_fatura_kalemleri').filter(k => k.fatura_id === id).forEach(k => kayitSil('manuel_fatura_kalemleri', k.id));
+      kayitSil('manuel_faturalar', id);
+      manuelFaturaListesiYenile();
+    }
+
     // ============ ÖNİZLEME ============
     function letterheadHtml(rozet) {
       return `
@@ -935,12 +1149,60 @@
         </div>
       `;
     }
+    // e-Arşiv fatura önizlemesi — servis formu önizlemesiyle (formOnizlemeHtml) aynı
+    // "gerçek belge" görünümünü (antetli beyaz kağıt) kullanıyor, imza alanları yok
+    // çünkü bu resmi belge değil GİB'e gönderilecek verinin önizlemesi.
+    function faturaOnizlemeHtml({ unvan, vkn, adres, tarih, kalemler, kdvOrani }) {
+      const araToplam = kalemler.reduce((s, k) => s + (k.adet * k.birim_fiyat), 0);
+      const kdvTutari = araToplam * (kdvOrani || 0) / 100;
+      const genelToplam = araToplam + kdvTutari;
+      const not = localStorage.getItem('earsivFaturaNotu') || '';
+      return `
+        ${letterheadHtml({ tarih })}
+        <h2>Fatura</h2>
+        <div class="card">
+          <div class="form-row">
+            <div style="flex:1;"><span class="hint">Alıcı</span><p style="margin:0;">${unvan}</p></div>
+            <div style="flex:1;"><span class="hint">VKN/TCKN</span><p style="margin:0;">${vkn}</p></div>
+            <div style="flex:1;"><span class="hint">Adres</span><p style="margin:0;">${adres || '-'}</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Ürün ve Hizmetler</h3>
+          <table>
+            <thead><tr><th>Açıklama</th><th>Adet</th><th>Birim fiyat</th><th>Toplam</th></tr></thead>
+            <tbody>
+              ${kalemler.map(k => `
+                <tr>
+                  <td>${k.aciklama}</td>
+                  <td>${k.adet}</td>
+                  <td>${Number(k.birim_fiyat).toFixed(2)} ₺</td>
+                  <td>${(k.adet * k.birim_fiyat).toFixed(2)} ₺</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="totals">
+          <div class="totals-box">
+            <div class="row"><span>Toplam</span><span>${araToplam.toFixed(2)} ₺</span></div>
+            <div class="row"><span>KDV %${kdvOrani || 0}</span><span>${kdvTutari.toFixed(2)} ₺</span></div>
+            <div class="grand"><span>Genel toplam</span><span>${genelToplam.toFixed(2)} ₺</span></div>
+          </div>
+        </div>
+        ${not ? `<p class="hint" style="text-transform:none; margin-top:14px;">Fatura notu: ${not}</p>` : ''}
+      `;
+    }
+
     function onizlemeAc(html) {
       document.getElementById('onizlemeIcerik').innerHTML = html;
       document.body.classList.add('onizleme-acik');
     }
     function onizlemeKapat() {
       document.body.classList.remove('onizleme-acik');
+      // Fatura önizlemesi için gizlenen/gösterilen bar'ları servis formu varsayılanına döndür.
+      document.getElementById('onizlemeButonlarServis').style.display = 'flex';
+      document.getElementById('onizlemeButonlarFatura').style.display = 'none';
+      faturaOnizlemeVeri = null;
     }
     function onizlemeYeniForm() {
       const firmaId = document.getElementById('formFirmaSecim').value;
@@ -1004,13 +1266,27 @@
             <td>
               <button onclick="formGoruntule('${f.id}')">Görüntüle</button>
               <button class="ghost-danger" onclick="formSilOnayla('${f.id}')">Sil</button>
-              ${earsivButonuUret(f)}
+              ${earsivButonuUret(f, 'servis_formlari')}
             </td>
           </tr>`).join('')
         : '<tr><td colspan="7" class="empty">Sonuç bulunamadı</td></tr>';
     }
 
     // ============ E-ARŞİV ============
+    // İki farklı kayıt tipi (servis formu + bağımsız manuel fatura) aynı e-Arşiv
+    // akışını paylaşıyor; hangi tabloda hangi kalem tablosuna/FK alanına bakılacağı
+    // burada tanımlı, kod tekrarı olmasın diye.
+    const EARSIV_TABLO_AYARLARI = {
+      servis_formlari: { kalemTablo: 'form_kalemleri', kalemFk: 'form_id' },
+      manuel_faturalar: { kalemTablo: 'manuel_fatura_kalemleri', kalemFk: 'fatura_id' },
+    };
+    const EARSIV_DEVAM_EDEN_DURUMLAR = ['taslak_olusturuldu', 'sms_gonderildi', 'hata'];
+
+    function earsivListeyiYenile(tablo) {
+      if (tablo === 'servis_formlari') gecmisAra();
+      else manuelFaturaListesiYenile();
+    }
+
     function earsivDurumEtiketi(durum) {
       if (durum === 'imzalandi') return '🟢 Kesildi';
       if (durum === 'taslak_olusturuldu' || durum === 'sms_gonderildi') return '🟡 Yarım kaldı';
@@ -1018,59 +1294,129 @@
       return '⚪ Kesilmedi';
     }
 
-    function earsivButonuUret(f) {
+    function earsivButonuUret(f, tablo) {
+      const onizleBtn = `<button onclick="earsivOnizlemeGoster('${tablo}', '${f.id}')">Önizle</button>`;
       if (f.earsiv_durum === 'imzalandi') {
-        return `<button onclick="earsivIndir('${f.id}')">İndir</button>`;
+        return `${onizleBtn} <button onclick="earsivIndir('${tablo}', '${f.id}')">İndir</button>`;
       }
-      const devamEdenDurumlar = ['taslak_olusturuldu', 'sms_gonderildi', 'hata'];
-      const etiket = devamEdenDurumlar.includes(f.earsiv_durum) ? 'Devam et' : 'Faturayı Kes';
+      const etiket = EARSIV_DEVAM_EDEN_DURUMLAR.includes(f.earsiv_durum) ? 'Devam et' : 'Faturayı Kes';
       if (!f.firma_vkn) {
-        return `<button disabled title="Bu firmanın VKN bilgisi eksik">${etiket}</button>`;
+        return `${onizleBtn} <button disabled title="Bu firmanın VKN bilgisi eksik">${etiket}</button>`;
       }
-      return `<button class="primary" onclick="faturaKesBaslat('${f.id}')">${etiket}</button>`;
+      return `${onizleBtn} <button class="primary" onclick="earsivFaturaKesTikla('${tablo}', '${f.id}')">${etiket}</button>`;
     }
 
     let aktifFaturaFormId = null;
+    let aktifFaturaTablo = 'servis_formlari';
+    let faturaOnizlemeVeri = null;
 
-    async function faturaKesBaslat(formId) {
-      const f = yerelOku('servis_formlari').find(x => x.id === formId);
-      const firma = yerelOku('firmalar').find(x => x.id === f.firma_id);
+    function onizlemeFaturaOnayla() {
+      if (!faturaOnizlemeVeri) return;
+      const devamEt = faturaOnizlemeVeri.devamEt;
+      onizlemeKapat();
+      devamEt();
+    }
+
+    // Salt görüntüleme: "Devam et"/"Sil" butonlarının yanındaki "Önizle" — herhangi bir
+    // GİB işlemi başlatmadan, kaydın o an yerelde ne içerdiğini göstermek için. Onayla
+    // butonu bu modda gizlenir (bağlı bir eylem yok, faturaOnizlemeVeri de null kalır).
+    function earsivOnizlemeGoster(tablo, id) {
+      const kayit = yerelOku(tablo).find(x => x.id === id);
+      if (!kayit) return;
+      const firma = yerelOku('firmalar').find(x => x.id === kayit.firma_id);
+      const ayar = EARSIV_TABLO_AYARLARI[tablo];
+      const kalemler = yerelOku(ayar.kalemTablo).filter(k => k[ayar.kalemFk] === kayit.id && !k.deleted);
+      const lokasyon = yerelOku('lokasyonlar').find(l => l.id === kayit.lokasyon_id);
+
+      onizlemeAc(faturaOnizlemeHtml({
+        unvan: firma?.unvan || '-', vkn: firma?.vkn || '—', adres: lokasyon?.adres,
+        tarih: kayit.tarih, kalemler, kdvOrani: kayit.kdv_orani,
+      }));
+      faturaOnizlemeVeri = null;
+      document.getElementById('onizlemeFaturaOnaylaBtn').style.display = 'none';
+      document.getElementById('onizlemeButonlarServis').style.display = 'none';
+      document.getElementById('onizlemeButonlarFatura').style.display = 'flex';
+    }
+
+    async function earsivFaturaKesTikla(tablo, id) {
+      const kayit = yerelOku(tablo).find(x => x.id === id);
+      if (!kayit) return;
+      const firma = yerelOku('firmalar').find(x => x.id === kayit.firma_id);
       if (!firma || !firma.vkn) { alert('Bu firmanın VKN bilgisi eksik. Önce Firmalar sekmesinden VKN gir.'); return; }
-      if (!confirm('Bu form için GİB e-Arşiv Portalı üzerinden resmi fatura süreci başlatılacak. Devam edilsin mi?')) return;
 
-      const kalemler = yerelOku('form_kalemleri').filter(k => k.form_id === formId && !k.deleted);
-      const lokasyon = yerelOku('lokasyonlar').find(l => l.id === f.lokasyon_id);
+      const ayar = EARSIV_TABLO_AYARLARI[tablo];
+      const kalemler = yerelOku(ayar.kalemTablo).filter(k => k[ayar.kalemFk] === kayit.id && !k.deleted);
+      const lokasyon = yerelOku('lokasyonlar').find(l => l.id === kayit.lokasyon_id);
+
+      // Taslak GİB'de zaten oluşmuşsa ("Devam et") önizleme tekrar gösterilmiyor —
+      // fatura içeriği zaten GİB'e gönderilmiş durumda, tekrar onay istemek kafa karıştırır.
+      const devamEdiyor = EARSIV_DEVAM_EDEN_DURUMLAR.includes(kayit.earsiv_durum) && kayit.earsiv_tarih;
+      if (!devamEdiyor) {
+        onizlemeAc(faturaOnizlemeHtml({
+          unvan: firma.unvan, vkn: firma.vkn, adres: lokasyon?.adres,
+          tarih: kayit.tarih, kalemler, kdvOrani: kayit.kdv_orani,
+        }));
+        faturaOnizlemeVeri = { devamEt: () => earsivFaturaKesGerceklestir(tablo, id) };
+        document.getElementById('onizlemeFaturaOnaylaBtn').style.display = '';
+        document.getElementById('onizlemeButonlarServis').style.display = 'none';
+        document.getElementById('onizlemeButonlarFatura').style.display = 'flex';
+        return;
+      }
+      await earsivFaturaKesGerceklestir(tablo, id);
+    }
+
+    async function earsivFaturaKesGerceklestir(tablo, id) {
+      const kayit = yerelOku(tablo).find(x => x.id === id);
+      if (!kayit) return;
+      const firma = yerelOku('firmalar').find(x => x.id === kayit.firma_id);
+      const ayar = EARSIV_TABLO_AYARLARI[tablo];
+      const kalemler = yerelOku(ayar.kalemTablo).filter(k => k[ayar.kalemFk] === kayit.id && !k.deleted);
+      const lokasyon = yerelOku('lokasyonlar').find(l => l.id === kayit.lokasyon_id);
+      const formId = kayit.id;
 
       try {
         let mevcutUuid, mevcutTarih;
-        const devamEdenDurumlar = ['taslak_olusturuldu', 'sms_gonderildi', 'hata'];
-        if (devamEdenDurumlar.includes(f.earsiv_durum) && f.earsiv_uuid) {
-          mevcutUuid = f.earsiv_uuid;
-          mevcutTarih = f.earsiv_tarih;
+        if (EARSIV_DEVAM_EDEN_DURUMLAR.includes(kayit.earsiv_durum) && kayit.earsiv_tarih) {
+          mevcutUuid = kayit.earsiv_uuid || undefined;
+          mevcutTarih = kayit.earsiv_tarih;
         }
         const sonuc = await window.earsiv.faturaBaslat({
           formId, vkn: firma.vkn, unvanYerel: firma.unvan, adresYerel: lokasyon?.adres,
-          kalemler, kdvOrani: f.kdv_orani, mevcutUuid, mevcutTarih,
+          kalemler, kdvOrani: kayit.kdv_orani, not: localStorage.getItem('earsivFaturaNotu') || '',
+          mevcutUuid, mevcutTarih,
         });
-        kayitUpsert('servis_formlari', {
-          ...f, earsiv_durum: 'taslak_olusturuldu', earsiv_uuid: sonuc.uuid,
+        // uuid/tarih HER durumda kaydedilir (bulunamasa bile) — yoksa "Devam et"
+        // aynı taslağı değil, her seferinde YENİ bir taslak oluşturur.
+        kayitUpsert(tablo, {
+          ...kayit, earsiv_durum: 'taslak_olusturuldu', earsiv_uuid: sonuc.uuid,
           earsiv_tarih: sonuc.tarih, earsiv_ortam: sonuc.ortam, earsiv_hata: null,
         });
+        if (sonuc.bulunamadi) {
+          alert('Taslak GİB\'e gönderildi ama listede henüz görünmüyor. Birkaç dakika sonra "Devam et" ile tekrar dene (aynı taslağı arayacak, yenisini oluşturmayacak).');
+          earsivListeyiYenile(tablo);
+          return;
+        }
 
         await window.earsiv.smsGonder({ formId });
-        const guncel = yerelOku('servis_formlari').find(x => x.id === formId);
-        kayitUpsert('servis_formlari', { ...guncel, earsiv_durum: 'sms_gonderildi' });
+        const guncel = yerelOku(tablo).find(x => x.id === formId);
+        kayitUpsert(tablo, { ...guncel, earsiv_durum: 'sms_gonderildi' });
 
         aktifFaturaFormId = formId;
+        aktifFaturaTablo = tablo;
         document.getElementById('earsivSmsKod').value = '';
         document.getElementById('earsivSmsMesaj').textContent = '';
+        // Taslak artık GİB'de kendi ürettiği ID ile değil, VKN + tarih eşleşmesiyle
+        // bulunuyor (bkz. earsiv/client.js notu) — imzalamadan önce Batuhan'ın doğru
+        // faturayı imzaladığını gözle kontrol edebilmesi için belge no + alıcı adı gösterilir.
+        document.getElementById('earsivSmsFaturaBilgi').textContent =
+          sonuc.belgeNumarasi ? `Bulunan fatura: ${sonuc.belgeNumarasi} — ${sonuc.aliciUnvanAdSoyad || ''}` : '';
         document.body.classList.add('earsiv-sms-acik');
-        gecmisAra();
+        earsivListeyiYenile(tablo);
       } catch (e) {
-        const guncel = yerelOku('servis_formlari').find(x => x.id === formId) || f;
-        kayitUpsert('servis_formlari', { ...guncel, earsiv_durum: 'hata', earsiv_hata: String(e.message || e) });
+        const guncel = yerelOku(tablo).find(x => x.id === formId) || kayit;
+        kayitUpsert(tablo, { ...guncel, earsiv_durum: 'hata', earsiv_hata: String(e.message || e) });
         alert('Fatura kesme başlatılamadı: ' + (e.message || e));
-        gecmisAra();
+        earsivListeyiYenile(tablo);
       }
     }
 
@@ -1088,18 +1434,18 @@
       if (!confirm('Bu işlem sonrası fatura GİB\'e resmi olarak gönderilecek ve GERİ ALINAMAZ. Onaylıyor musun?')) return;
       try {
         const sonuc = await window.earsiv.smsDogrula({ formId: aktifFaturaFormId, kod });
-        const f = yerelOku('servis_formlari').find(x => x.id === aktifFaturaFormId);
-        kayitUpsert('servis_formlari', { ...f, earsiv_durum: 'imzalandi', earsiv_indirme_url: sonuc.indirmeUrl, earsiv_hata: null });
+        const kayit = yerelOku(aktifFaturaTablo).find(x => x.id === aktifFaturaFormId);
+        kayitUpsert(aktifFaturaTablo, { ...kayit, earsiv_durum: 'imzalandi', earsiv_indirme_url: sonuc.indirmeUrl, earsiv_hata: null });
         document.body.classList.remove('earsiv-sms-acik');
+        earsivListeyiYenile(aktifFaturaTablo);
         aktifFaturaFormId = null;
-        gecmisAra();
       } catch (e) {
         mesaj.textContent = 'Kod doğrulanamadı: ' + (e.message || e) + ' Tekrar dene.';
       }
     }
 
-    async function earsivIndir(formId) {
-      const f = yerelOku('servis_formlari').find(x => x.id === formId);
+    async function earsivIndir(tablo, formId) {
+      const f = yerelOku(tablo).find(x => x.id === formId);
       try {
         await window.earsiv.indir({ uuid: f.earsiv_uuid, tarih: f.earsiv_tarih, ortam: f.earsiv_ortam });
       } catch (e) {
@@ -1115,6 +1461,7 @@
       document.getElementById('earsivAyarDurum').textContent = veri.tanimliMi
         ? `Kayıtlı (${veri.ortam === 'PROD' ? 'GERÇEK ortam' : 'test ortamı'})`
         : 'Henüz kayıtlı bilgi yok.';
+      document.getElementById('earsivFaturaNotu').value = localStorage.getItem('earsivFaturaNotu') || '';
     }
 
     document.getElementById('earsivAyarKaydetBtn').addEventListener('click', async () => {
@@ -1132,6 +1479,11 @@
       } catch (e) {
         durumEl.textContent = 'Kaydedilemedi: ' + (e.message || e);
       }
+    });
+
+    document.getElementById('earsivFaturaNotuKaydetBtn').addEventListener('click', () => {
+      localStorage.setItem('earsivFaturaNotu', document.getElementById('earsivFaturaNotu').value);
+      document.getElementById('earsivFaturaNotuDurum').textContent = 'Kaydedildi.';
     });
 
     function formGoruntule(formId) {
@@ -1162,6 +1514,7 @@
 
     // ============ BAŞLANGIÇ ============
     document.getElementById('formTarih').value = new Date().toISOString().split('T')[0];
+    document.getElementById('faturaTarih').value = new Date().toISOString().split('T')[0];
     oturumKontrol();
   </script>
 </body>

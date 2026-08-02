@@ -197,11 +197,16 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
       **Uçtan uca gerçek makinede doğrulandı:** v1.0.1 kuruldu, v1.0.2 yayınlandı,
       kurulu 1.0.1 açılınca güncellemeyi indirdi, "Şimdi kur" diyaloğu çıktı, kurulup
       1.0.2'ye geçti. Kullanım için bkz. bölüm 8.
-- [x] **e-Arşiv entegrasyonu** (2026-08-02, kod tamam, canlı test bekliyor). Ücretli
+- [x] **e-Arşiv entegrasyonu** (2026-08-02, **uçtan uca PROD'da doğrulandı**). Ücretli
       entegratöre gerek kalmadan `fatura` (npm, github.com/f/fatura) paketiyle GİB
       e-Arşiv Portalı Batuhan'ın kendi kullanıcı adı/şifresiyle otomatikleştiriliyor.
-      Detaylar için bkz. bölüm 11. Supabase şeması güncellendi. **Canlı uçtan uca test
-      henüz yapılmadı** — GİB TEST hesabıyla deneme gerekiyor.
+      Detaylar için bkz. bölüm 11. Supabase şeması güncellendi (`manuel_faturalar` +
+      `manuel_fatura_kalemleri` tabloları Batuhan tarafından dashboard'da çalıştırıldı).
+      **Tam akış gerçek hesapla çalışıyor:** önizle → taslak oluştur → VKN ile bul →
+      SMS gönder → kod doğrula + imzala (GERİ ALINAMAZ, resmi belge) → PDF indir.
+      `fatura` paketinde bulunan 5 ayrı gerçek hata (taslak bulma, telefon numarası,
+      SMS doğrulama komutu, OID okuma, indirme linki) tek tek tespit edilip düzeltildi
+      — hepsi bölüm 11'de belgelendi.
 - [ ] Şifre sıfırlama akışı
 - [ ] Google ile giriş (Google Cloud Console ayarı gerekir)
 - [ ] Kesilmiş formu sonradan düzenleme
@@ -238,21 +243,46 @@ ama açık kaynak ve aktif.
   **Bu bilgi Supabase'e hiç gitmez, tek makineye özel.**
 - `earsiv/client.js` — `fatura` paketinin sarmalayıcısı, form bazlı oturum durumu
   (`Map`, formId → GİB token/taslak/SMS operationId).
-- `patches/fatura+0.2.1.patch` — **`patch-package` ile kalıcı hale getirilmiş kritik
-  bir düzeltme.** `fatura@0.2.1`'in `createDraftInvoice` fonksiyonu GİB'e ETTN alanını
-  `faturaUuid` adıyla gönderiyor, GİB bunu tanımayıp "Ettn ya eksik ya boş" hatası
-  veriyor (kütüphanenin kendi GitHub'ında bu tam sorunu düzelten ama birleştirilmemiş
-  PR #45 var, biz aynı düzeltmeyi `ettn: faturaUuid` olarak yamaladık). `postinstall`
-  script'i (`package.json`) her `npm install`'da bu yamayı otomatik uyguluyor —
-  **`node_modules` silinip yeniden kurulsa bile düzeltme kaybolmaz.** Paket
-  güncellenip bu bug resmi olarak düzeltilirse yama artık gereksiz olur, kaldırılabilir.
+- `patches/fatura+0.2.1.patch` — **`patch-package` ile kalıcı hale getirilmiş, iki
+  kritik düzeltme içeriyor:**
+  1. `createDraftInvoice` GİB'e ETTN alanını `faturaUuid` adıyla gönderiyordu, GİB
+     bunu tanımayıp "Ettn ya eksik ya boş" hatası veriyordu (kütüphanenin kendi
+     GitHub'ında bu tam sorunu düzelten ama birleştirilmemiş PR #45 var, aynı
+     düzeltme `ettn: faturaUuid` olarak yamalandı).
+  2. `not` (fatura notu) alanı hep otomatik "tutarın yazıyla hali" ile dolduruluyordu,
+     özel bir not girme imkanı yoktu; `invoiceDetails.note` verilmişse onu kullanacak,
+     verilmezse eskisi gibi otomatik dolduracak şekilde yamalandı.
+
+  `postinstall` script'i (`package.json`) her `npm install`'da bu yamayı otomatik
+  uyguluyor — **`node_modules` silinip yeniden kurulsa bile düzeltmeler kaybolmaz.**
+  Paket güncellenip bu bug'lar resmi olarak düzeltilirse yama gereksiz olur, kaldırılabilir.
 - `main.js` — `ipcMain.handle('earsiv:...')` kanalları (main process, Node-only —
   `fatura` renderer'da ÇALIŞAMAZ çünkü `contextIsolation: true`).
 - `preload.js` — `window.earsiv.*` olarak `contextBridge` ile expose edilir (ilk kez
   gerçek içerik aldı, önceden tamamen boştu).
-- `index.html` — "Ayarlar" sekmesi (GİB kimlik girişi, TEST/PROD seçimi, varsayılan
-  TEST), "Geçmiş" sekmesinde "Faturayı Kes"/"Devam et"/"İndir" butonu + durum sütunu
-  (`earsivDurumEtiketi`), SMS kod girme modalı (`#earsivSmsOverlay`).
+- `index.html` — üç yer:
+  1. "Ayarlar" sekmesi: GİB kimlik girişi (kullanıcı adı/şifre/telefon, TEST/PROD
+     seçimi, varsayılan TEST), ve ayrı bir "Fatura notu" alanı — kestiği HER faturaya
+     otomatik eklenecek serbest metin (Batuhan burayı IBAN için kullanıyor).
+     `localStorage` içinde `earsivFaturaNotu` anahtarıyla tutulur (Supabase'e gitmez,
+     GİB kimlik bilgisi kadar hassas değil, senkron da gerekmiyor).
+  2. "Geçmiş" sekmesi: servis formlarına bağlı "Faturayı Kes"/"Devam et"/"İndir"
+     butonu + durum sütunu (`earsivDurumEtiketi`).
+  3. **"Fatura Kes" sekmesi (2026-08-02 eklendi)** — servis formundan TAMAMEN bağımsız,
+     kendi firma/kalem girişiyle doğrudan e-Arşiv faturası kesmek için. Neden gerekti:
+     servis formundaki kalem açıklaması (iç/teknik not) ile resmi faturada görünmesi
+     gereken ürün/hizmet adı farklı olabiliyor — aynı alanı iki amaç için kullanmak
+     yerine tamamen ayrı bir giriş ekranı yapıldı. Kendi kalem tablosu (`faturaKalemleri`
+     state'i, `faturaKalemEkle`/`faturaKalemGuncelle`/`faturaKalemTablosunuCiz` —
+     servis formunun `kalemEkle` ailesiyle birebir aynı pattern) ve kendi geçmiş
+     listesi (`manuelFaturaListesiYenile`) var.
+
+  Servis formu + Fatura Kes sekmelerinin ikisi de AYNI e-Arşiv kodunu paylaşıyor —
+  kopyala-yapıştır yerine `EARSIV_TABLO_AYARLARI` eşlemesi (`servis_formlari` ↔
+  `form_kalemleri`/`form_id`, `manuel_faturalar` ↔ `manuel_fatura_kalemleri`/`fatura_id`)
+  ve tek bir `earsivFaturaKesTikla(tablo, id)` fonksiyonu üzerinden çalışıyor.
+  SMS kod girme modalı (`#earsivSmsOverlay`) de ikisi için ortak, hangi kaydı
+  güncelleyeceğini `aktifFaturaTablo` global'i ile biliyor.
 
 **Akış:** taslak oluştur → GİB'de bul (`findInvoice`, retry'lı) → SMS gönder (Batuhan'ın
 hesabı mali mühürsüz, **SMS ile imzalıyor**, bu adım atlanamaz) → kullanıcı kodu girer →
@@ -277,6 +307,50 @@ ALTER TABLE servis_formlari
   ADD COLUMN IF NOT EXISTS earsiv_indirme_url text,
   ADD COLUMN IF NOT EXISTS earsiv_hata text;
 ```
+
+**"Fatura Kes" sekmesi için yeni tablolar — HENÜZ ÇALIŞTIRILMADI, Batuhan'ın
+dashboard SQL Editor'de çalıştırması gerekiyor:**
+```sql
+create table manuel_faturalar (
+  id uuid primary key,
+  user_id uuid default auth.uid(),
+  firma_id uuid references firmalar(id),
+  lokasyon_id uuid references lokasyonlar(id),
+  tarih date,
+  kdv_orani numeric,
+  earsiv_durum text,
+  earsiv_uuid text,
+  earsiv_tarih text,
+  earsiv_ortam text,
+  earsiv_indirme_url text,
+  earsiv_hata text,
+  deleted boolean default false,
+  updated_at timestamptz default now()
+);
+
+create table manuel_fatura_kalemleri (
+  id uuid primary key,
+  user_id uuid default auth.uid(),
+  fatura_id uuid references manuel_faturalar(id),
+  urun_id uuid references urunler(id),
+  aciklama text,
+  adet numeric,
+  birim_fiyat numeric,
+  deleted boolean default false,
+  updated_at timestamptz default now()
+);
+
+alter table manuel_faturalar enable row level security;
+alter table manuel_fatura_kalemleri enable row level security;
+
+create policy "kullanici kendi verisi" on manuel_faturalar
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "kullanici kendi verisi" on manuel_fatura_kalemleri
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+Bu çalıştırılmadan "Fatura Kes" sekmesinde kaydedilen kayıtlar yerelde görünür ama
+Supabase'e senkronize olmaz (diğer tablolarla aynı şema-serbest `kayitUpsert` davranışı).
+
 **Test durumu (2026-08-02, uygulama üzerinden Batuhan tarafından denendi):**
 - Ayarlar'a TEST + `33333301`/`1` kaydedildi, `safeStorage` dosyası doğru oluştu.
 - İlk denemede paylaşılan TEST hesabı kilitliydi ("aynı anda birden fazla giriş") —
@@ -304,12 +378,184 @@ ALTER TABLE servis_formlari
   hiç canlı test edilmedi** — bunun tek gerçek testi Batuhan'ın kendi (SMS ile imzalayan)
   gerçek hesabıyla olabilir, TEST ortamının bu paylaşılan hesabı bunun için uygun değil.
 
-**Sıradaki adım:** Yukarıdaki bulgular yüzünden TEST ortamında SMS akışını doğrulamanın
-bir yolu kalmadı. Batuhan hazır olduğunda Ayarlar'da PROD'a geçip **tek, düşük tutarlı
-gerçek bir formla** ilk canlı denemeyi yapmalı — draft oluşturma artık düzeltildiği için
-(patch), `findInvoice` de (düşük hacimli gerçek hesapta) sorunsuz çalışması bekleniyor;
-asıl merak edilen SMS gönder/doğrula/imzala adımlarının ilk kez gerçek hesapla nasıl
-davranacağı.
+**Gerçek (PROD) hesapla ilk canlı deneme (2026-08-02, aynı gün):**
+Batuhan Ayarlar'da PROD'a geçip kendi gerçek GİB hesabıyla denedi.
+- `createDraftInvoice` **başarıyla çalıştı** (patch doğrulandı, PROD'da da).
+- `findInvoice` iki denemede de (7.5 saniyelik retry penceresi içinde) taslağı
+  bulamadı — "Taslak GİB sisteminde henüz görünmüyor" hatası. Paylaşılan TEST
+  hesabındaki gürültü sorunu burada geçerli değil (kendi hesabı, az kayıt); bu kez
+  sebep muhtemelen **GİB PROD'un indexleme gecikmesi** — TEST'ten daha yavaş
+  olabiliyor. "Devam et" ile aynı taslağı tekrar aramak tasarım gereği güvenli
+  (yeni taslak oluşturmuyor), ama birkaç dakika beklemek gerekebilir.
+- Bu arada Batuhan farklı formlarla denedi (aynı formda "Devam et" yerine), bu yüzden
+  birkaç imzalanmamış/yarım taslak GİB hesabında kalmış olabilir — sorun değil,
+  imzalanmadıkları için resmi sayılmıyorlar, GİB muhtemelen bir süre sonra kendiliğinden
+  temizler; gerekirse portaldan elle silinebilir.
+- **Gerçek bir bug bulundu ve düzeltildi:** `earsivFaturaKesTikla`'nın `catch` bloğu
+  sadece `earsiv_durum: 'hata'` yazıyordu, `earsiv_uuid`'i HİÇ kaydetmiyordu (o alan
+  sadece başarı durumunda set ediliyordu). Sonuç: `findInvoice` başarısız olduğunda
+  "Devam et" aslında hiçbir zaman aynı taslağı aramıyordu — `mevcutUuid` boş olduğu
+  için HER "Devam et" tıklamasında GİB'de YENİ bir taslak oluşuyordu (log'da aynı form
+  için 3 farklı taslak uuid'i görüldü, düzeltilmeden önce). Düzeltme: `earsiv/client.js`
+  → `faturaBaslat` artık taslak oluşturma ile bulma adımını ayrı try/catch'lere böldü;
+  bulma başarısız olursa `{ bulunamadi: true, uuid, tarih, ortam }` döndürüyor (throw
+  ETMİYOR), `index.html` bunu HER durumda (bulunsa da bulunmasa da) `earsiv_uuid`/
+  `earsiv_tarih` olarak kaydediyor. Artık "Devam et" gerçekten aynı taslağı arıyor.
+- **SMS gönder → kod doğrula → imzala zincirinin gerçek davranışı hâlâ hiç canlı
+  test edilmedi** (findInvoice tamamlanmadığı için o adıma hiç gelinemedi — yukarıdaki
+  düzeltmeden sonra tekrar denenecek).
+
+**"Taslak bulunamıyor" sorununun kök nedeni araştırması (2026-08-02, aynı gün, devam):**
+Batuhan ısrarla "sorun süreyle alakalı değil, başka bir şey" dedi (başka e-Arşiv
+araçlarında taslak anında görünüyormuş) — bu, "biraz daha bekle" teorisini haklı
+olarak reddetti. Bunun üzerine:
+- `hangiTip`/`faturaTipi` uyuşmazlığı bulundu: `fatura` paketinin varsayılanları
+  (`faturaTipi: "5000/30000"`, `hangiTip: "Buyuk"`) ile GİB'in taslak ARAMA
+  sorgusunun kullandığı değer (`hangiTip: "5000/30000"`) uyuşmuyordu — taslak GİB'e
+  kabul ediliyor ama arama onu hiç bulamıyordu. `github.com/xBuhari/buhari-earsiv-api`
+  ile karşılaştırılarak doğru değerler (`invoiceType: 'SATIS', hangiTip: '5000/30000'`)
+  `earsiv/client.js` → `faturaVerisiOlustur()`'da elle set edildi. Bir denemede
+  çalıştığı doğrulandı ama sonraki bir denemede sorun kısmen tekrarladı — tam
+  güvenilir değildi.
+- Batuhan'ın Chrome DevTools ile yakaladığı gerçek GİB portal ağ trafiği incelendi.
+  Portalın kendi client-side JS'i (RG_BASITFATURA formunun `SIDE.GET_EAGER_BF_DEFS`
+  tanımı) şunu ortaya çıkardı: **GİB'in kendi arayüzü, oluşturulan taslağı ARAMAK
+  için tarih aralığı listesi taraması KULLANMIYOR** — doğrudan ID ile sorguluyor:
+  `EARSIV_PORTAL_FATURA_GETIR`, `{ettn: uuid}`. `github.com/xBuhari/buhari-earsiv-api`
+  da (kaynak kodu incelendi) taslağı doğrulamak için aynı komutu, aynı şekilde
+  kullanıyor. Bu, `fatura` paketinin `findInvoice`'unun kullandığı
+  `getAllInvoicesByDateRange` (tarih aralığı + `hangiTip` filtresiyle liste) taramasından
+  tamamen farklı bir yol — ve listeleme tarafında ayrı bir gecikme/filtre sorunu olsa
+  bile ID ile doğrudan sorgu bunu etkilemiyor olabilir.
+  - Ara adım: `earsiv/client.js`'e `EARSIV_PORTAL_FATURA_GETIR` (ID ile doğrudan
+    doğrulama) eklendi, ama bu da taslağı hiç bulamadı ("Düzenlenmek üzere fatura
+    getirilemedi. Hata kodu: 2-1109") — bu, gerçek kök nedenin izini sürmeye devam
+    etmemizi sağladı (aşağıya bkz.), kendisi kalıcı çözüm olmadı.
+
+**GERÇEK KÖK NEDEN BULUNDU VE DÜZELTİLDİ (2026-08-02, aynı gün):**
+Batuhan GİB portalında GERÇEK bir "Oluştur" tıklamasını DevTools ile yakalayıp Request
+Payload'ını gönderdi. Kritik fark ortaya çıktı: gerçek portal isteğinde
+**`"faturaUuid":""`** — yani BOŞ gönderiliyor. GİB kendi ID'sini kendisi atıyor ve
+oluşturma cevabında da bu gerçek ID hiç geri dönmüyor (sadece "Faturanız başarıyla
+oluşturulmuştur..." mesajı dönüyor, `{"data": "...", "metadata": {...}}` şeklinde).
+
+`fatura` paketi ise (patch'lenmeden önce `faturaUuid` adıyla, patch'lendikten sonra
+yanlışlıkla `ettn` adıyla) her zaman **kendi ürettiği rastgele bir uuid'i DOLU
+gönderiyordu**. GİB bunu görmezden geliyor (kendi ID'sini atıyor), biz de arama
+yaparken GİB'de hiçbir zaman var olmamış bu sahte uuid'i arıyorduk — taslak aslında
+her seferinde GERÇEKTEN oluşuyordu (ilk birkaç deneme "Düzenlenen Belgeler" sekmesinde
+gerçek belge numarasıyla — `GIB2026000000024` vb. — görüldü, Batuhan bunları elle
+sildi), sadece bizim aradığımız ID gerçek kayıtla hiç eşleşmiyordu.
+
+**Düzeltme (iki parça):**
+1. `patches/fatura+0.2.1.patch` güncellendi: `createDraftInvoice` artık `faturaUuid`
+   alanını gerçek portal gibi hep **boş string** gönderiyor (önceki `ettn: faturaUuid`
+   yanlış hem alan adı hem değer açısından yanlıştı — geri alındı).
+2. `earsiv/client.js` baştan tasarlandı: taslak artık kendi ürettiğimiz bir ID ile
+   değil, **VKN + tarih eşleşmesiyle** bulunuyor (`faturaAra()` → `getAllInvoicesByDateRange`
+   sonucunu `aliciVknTckn === vkn` ile filtreleyip en yüksek `belgeNumarasi`'nı seçiyor).
+   `EARSIV_PORTAL_FATURA_GETIR` (ID ile doğrudan doğrulama) kaldırıldı — artık gereksiz,
+   zaten gerçek bir ID'miz yoktu ki onunla doğrulayalım.
+   Aynı VKN'ye aynı gün birden fazla fatura kesilirse (nadir ama mümkün) yanlış kaydı
+   seçme riskine karşı: `index.html`'deki SMS onay ekranına bulunan faturanın belge
+   numarası + alıcı unvanı gösteriliyor (`#earsivSmsFaturaBilgi`) — Batuhan imzalamadan
+   önce gözle doğrulayabilir.
+
+**Canlı doğrulandı (2026-08-02, aynı gün, PROD hesabıyla):** VKN eşleşmesi ilk denemede
+(deneme 1) çalıştı — `GIB2026000000029` bulundu. Taslak bulma sorunu KESİN ÇÖZÜLDÜ.
+
+**İkinci bir gerçek hata bulundu ve düzeltildi (SMS gönderme adımı):** `smsGonder`
+çağrısı GİB'den `"Genel Sistem Hatası:java.lang.NullPointerException"` döndürdü. Sebep:
+kod telefon numarasını `getUserData` (`EARSIV_PORTAL_KULLANICI_BILGILERI_GETIR` →
+`d.telNo`) ile çekiyordu. Batuhan'ın gerçek GİB portalında "İmzala" akışını DevTools'ta
+yakalamasıyla görüldü ki gerçek portal telefonu **ayrı ve özel bir komutla** çekiyor:
+`EARSIV_PORTAL_TELEFONNO_SORGULA` → `{telefon: "5551234567"}` (başında 0/90 olmayan
+temiz 10 hane). `earsiv/client.js` → `telefonNoSorgula()` bu doğru komutu kullanacak
+şekilde güncellendi; ayrıca Ayarlar'dan elle girilen telefon da (`0555...`, `+90 555...`
+gibi farklı formatlarda olabilir) `telefonNormalizeEt()` ile aynı temiz forma çevriliyor.
+**Bu düzeltmeyle SMS gönderme başarıyla çalıştı** (Batuhan'a gerçek SMS geldi).
+
+**Üçüncü gerçek hata bulundu ve düzeltildi (SMS doğrulama/imzalama adımı):** SMS kodu
+girilince yine `"Genel Sistem Hatası:java.lang.NullPointerException"` alındı. Log'da
+`operationId=undefined` görüldü — `fatura` paketinin `sendSignSMSCode`'u OID'i
+`result.oid`'den okuyordu ama GİB bunu `result.data.oid` altında dönüyor (SMS'in kendisi
+gerçekten gidiyordu, sadece OID hiç doğru okunmuyordu). `github.com/mlevent/fatura`
+(PHP, aynı repo TELEFONNO_SORGULA'yı da doğru kullanıyordu) `$response->object('data')->oid`
+ile doğruladı. `earsiv/client.js` → `smsGonder` artık `runCommand`'ı doğrudan çağırıp
+`result.data.oid`'i okuyor.
+
+Aynı araştırmada AYRICA şu da bulundu: SMS kodu doğrulama (`verifySignSMSCode` →
+`EARSIV_PORTAL_SMSSIFRE_DOGRULA`) GİB'de "Service Not Found" hatası veriyordu — bu komut
+artık/hiç yok. Gerçek akış doğrulama+imzalamayı AYRI değil TEK bir komutla yapıyor:
+`0lhozfib5410mp` (garip görünüyor ama `mlevent/fatura` kaynağından doğrulandı), sayfa
+`RG_SMSONAY`, parametreler `DATA:[{belgeTuru:'FATURA', ettn}], SIFRE, OID, OPR:1`, başarı
+`data.sonuc === '1'`. `smsDogrulaVeImzala` artık ayrı `verifySignSMSCode`+`signDraftInvoice`
+yerine bu tek komutu kullanıyor.
+
+**BAŞARILDI (2026-08-02, aynı gün): SMS gönder → kod doğrula → imzala zinciri OID
+düzeltmesiyle ilk kez uçtan uca çalıştı** — Batuhan kodu girdi, hata almadan imzalandı
+(yani `signDraftInvoice` adımının gerçek e-Arşiv faturası ürettiği doğrulandı). e-Arşiv
+entegrasyonunun en kritik/riskli parçası artık canlıda çalışıyor.
+
+**Dördüncü gerçek hata bulundu ve düzeltildi (indirme linki):** İmzalandıktan sonra
+"İndir"e basınca GİB `{"error":"1","messages":[{"text":"Bu işlem için yetkiniz yok"}]}`
+döndürdü. Sebep: `fatura` paketinin `getDownloadURL()`'ü `cmd=downloadResource`
+kullanıyor, ama `github.com/mlevent/fatura` (PHP) referansı doğru komutun
+`EARSIV_PORTAL_BELGE_INDIR` olduğunu gösterdi. `earsiv/client.js` → yeni
+`indirmeUrlUret()` fonksiyonu bu doğru `cmd` ile linki elle üretiyor (kütüphanenin
+`getDownloadURL` metodunu artık hiç kullanmıyoruz). **Canlı doğrulandı** — link artık
+açılıyor.
+
+**PDF olarak doğrudan indirme (2026-08-02, aynı gün, Batuhan'ın isteğiyle):** "İndir"
+tarayıcıda GİB sayfası açmak yerine artık doğrudan PDF indiriyor. `earsiv/client.js` →
+`indir()` artık `client.getInvoiceHTML()` (`EARSIV_PORTAL_FATURA_GOSTER`) ile GİB'in
+resmi belge HTML'ini çekiyor, görünmez bir `BrowserWindow`'da render edip Electron'un
+kendi `webContents.printToPDF()`'iyle PDF'e çeviriyor, `app.getPath('downloads')`
+altına `fatura-<ettn>.pdf` olarak kaydedip `shell.openPath` ile açıyor. Tarayıcı hiç
+açılmıyor. IPC arayüzü (`earsiv:indir` kanalı, `window.earsiv.indir`) değişmedi —
+main.js/preload.js/index.html'de değişiklik gerekmedi, sadece `earsiv/client.js`
+içindeki `indir()`'in gövdesi değişti. **Canlı doğrulandı** — ilk denemede PDF 2
+sayfaya taşmıştı, `printToPDF({ scale: 0.9 })` ile tek sayfaya sığdırıldı, bu haliyle
+onaylandı.
+
+**SONUÇ (2026-08-02): e-Arşiv entegrasyonu uçtan uca PROD'da çalışıyor.** Önizle →
+taslak oluştur (VKN'ye boş `faturaUuid` ile GİB'e gönder) → VKN+tarih eşleşmesiyle bul
+→ SMS gönder (doğru OID ile) → kod doğrula+imzala (tek komut, GERİ ALINAMAZ) → PDF
+indir — hepsi gerçek hesapla test edildi ve çalışıyor. Yolda bulunup düzeltilen 5 gerçek
+GİB/`fatura` paketi hatası: (1) taslak arama ID'si hiç GİB'e ulaşmıyordu, (2) telefon
+numarası yanlış komuttan okunuyordu, (3) SMS doğrulama komutu GİB'de yoktu (doğrulama+
+imzalama tek komutmuş), (4) SMS gönderme cevabındaki OID yanlış alandan okunuyordu,
+(5) indirme linkinin `cmd` parametresi yanlıştı. Hepsi gerçek DevTools trafiği ve/veya
+açık kaynak referans kütüphaneleriyle (xBuhari/buhari-earsiv-api, mlevent/fatura)
+çapraz doğrulanarak bulundu.
+
+**Fatura önizleme eklendi (2026-08-02, aynı gün, Batuhan'ın isteğiyle):** GİB'e
+gönderilmeden önce (resmi/geri alınamaz süreç başlamadan) ne kesileceğini gözle
+görüp onaylayabilmesi için önizleme eklendi. İlk halinde ayrı/küçük bir modaldı, ama
+Batuhan "normal fatura görüntüsü istiyorum" dedi — bunun üzerine servis formunun
+zaten var olan antetli beyaz kağıt önizlemesiyle (`#onizlemeOverlay`, `onizlemeAc`/
+`onizlemeKapat`, `formOnizlemeHtml`) AYNI mekanizmayı paylaşan `faturaOnizlemeHtml()`
+yazıldı (antet + "Fatura" başlığı + alıcı unvan/VKN/adres + kalemler tablosu + KDV/
+toplamlar + fatura notu, imza alanı yok). Overlay'in `.no-print` buton çubuğu artık iki
+ayrı div (`#onizlemeButonlarServis` vs `#onizlemeButonlarFatura`) arasında toggle
+ediliyor; `onizlemeKapat()` her zaman servis formu varsayılanına döner.
+
+`earsivFaturaKesTikla` ikiye bölündü: önce önizlemeyi açıyor (`faturaOnizlemeVeri.devamEt`
+callback'iyle), "Onayla, Faturayı Kes" (`onizlemeFaturaOnayla()`) tıklanınca asıl GİB
+akışını (`earsivFaturaKesGerceklestir`, eski fonksiyonun gövdesi) çalıştırıyor. "Devam et"
+(taslak zaten GİB'e gönderilmiş, `EARSIV_DEVAM_EDEN_DURUMLAR` + `earsiv_tarih` dolu)
+durumunda önizleme TEKRAR gösterilmiyor — içerik zaten GİB'e gitmiş, tekrar onay istemek
+kafa karıştırır. Ayrıca "Geçmiş"/"Fatura Kes" listelerindeki "Devam et"/"Sil" butonlarının
+yanına, herhangi bir GİB işlemi başlatmadan salt kaydı görüntülemek için bağımsız bir
+**"Önizle"** butonu eklendi (`earsivOnizlemeGoster`, Onayla butonu bu modda gizli). Bu
+değişiklik hem "Geçmiş" hem "Fatura Kes" sekmesindeki akış için ortak (`earsivButonuUret`/
+`earsivFaturaKesTikla` ikisi tarafından da paylaşılıyor).
+
+Bu arada fark edilen küçük bir bug da düzeltildi: "Devam et" koşulu
+(`kayit.earsiv_uuid` dolu olmasını şart koşuyordu) — VKN-eşleşmesi tasarımında taslak
+bulunamazsa `earsiv_uuid` boş kalabilir (sadece `earsiv_tarih` dolu olur), bu durumda
+eski kod yanlışlıkla YENİ bir taslak daha oluştururdu. Artık sadece `earsiv_tarih`
+doluysa yeniden oluşturmuyor.
 
 **Kapsam dışı (v1):** iptal/storno akışı, otomatik/toplu kesim, kalem bazlı farklı KDV
 oranı, faturanın e-posta ile otomatik gönderimi, çoklu cihaz arası GİB kimlik senkronu.
