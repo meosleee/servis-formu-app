@@ -194,7 +194,9 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
 - [x] **Otomatik güncelleme** (electron-updater + GitHub Releases). 2026-08-02'de
       eklendi — repo public'e çevrildi, `package.json`'a publish config + electron-updater
       bağımlılığı, `main.js`'e güncelleme kontrolü, workflow'a tag-push'ta publish eklendi.
-      Kullanım için bkz. bölüm 8.
+      **Uçtan uca gerçek makinede doğrulandı:** v1.0.1 kuruldu, v1.0.2 yayınlandı,
+      kurulu 1.0.1 açılınca güncellemeyi indirdi, "Şimdi kur" diyaloğu çıktı, kurulup
+      1.0.2'ye geçti. Kullanım için bkz. bölüm 8.
 - [ ] **e-Arşiv entegrasyonu.** Kullanıcı faturaları GİB e-Arşiv Portal'dan kesiyor.
       Portalın resmi API'si yok; otomatik entegrasyon ancak Paraşüt/Uyumsoft gibi
       ücretli özel entegratörlerle olur. Ara çözüm olarak "form verilerini e-Arşiv'e
