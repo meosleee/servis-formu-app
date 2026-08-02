@@ -2,6 +2,12 @@ name: Windows Build
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,10 +22,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build portable exe
-        run: npm run dist:win -- --publish never
+      - name: Build (ve tag push'ta yayınla)
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            npm run dist:win -- --publish always
+          else
+            npm run dist:win -- --publish never
+          fi
         env:
           ELECTRON_BUILDER_SKIP_REBUILD: "true"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload exe
         uses: actions/upload-artifact@v4

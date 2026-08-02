@@ -44,8 +44,12 @@ kapladığı için dijitale taşındı.
 | Yerel depolama | `localStorage` (offline-first katman) |
 | Paketleme | electron-builder → Windows: NSIS installer, Mac: dmg |
 | CI / derleme | GitHub Actions (Windows exe'si burada derleniyor) |
+| Otomatik güncelleme | electron-updater → GitHub Releases |
 
-**Repo:** github.com/meosleee/servis-formu-app (private)
+**Repo:** github.com/meosleee/servis-formu-app (**public** — 2026-08-02'de otomatik
+güncelleme için public'e çevrildi. service_role/secret anahtar hiçbir zaman repoya
+girmiyor, sadece RLS korumalı anon key kodda gömülü, bu yüzden public olması güvenlik
+sorunu değil.)
 **Supabase proje URL:** https://buncfnwagyrsgpayyqal.supabase.co
 
 ---
@@ -54,14 +58,14 @@ kapladığı için dijitale taşındı.
 
 ```
 servis-formu-app/
-├── main.js              # Electron ana süreç (sadece pencere açar, ~30 satır)
+├── main.js              # Electron ana süreç (pencere açar + otomatik güncelleme kontrolü)
 ├── preload.js           # Şu an boş — IPC köprüsüne ihtiyaç kalmadı
 ├── supabase.js          # SUPABASE_URL ve SUPABASE_KEY sabitleri
 ├── index.html           # TÜM uygulama: arayüz + iş mantığı + senkron
 ├── vendor/supabase.js   # supabase-js kütüphanesi (yerel kopya, CDN kullanılmıyor)
 ├── assets/logo.png      # Petsis logosu (arka planı şeffaf hale getirildi)
-├── package.json         # electron-builder yapılandırması burada
-└── .github/workflows/build-win.yml   # Windows derleme akışı
+├── package.json         # electron-builder yapılandırması + publish (GitHub Releases) burada
+└── .github/workflows/build-win.yml   # Windows derleme + tag push'ta release yayınlama
 ```
 
 ---
@@ -125,7 +129,8 @@ açılması ve yönetici izni sorunları yaşandı. NSIS installer'a geçildi
 eklendi, bazı Windows makinelerinde GPU kaynaklı donmaları çözüyor.
 
 **electron-builder CI'da yayınlamaya çalışıyor:** `GH_TOKEN is not set` hatası.
-Çözüm: build komutuna `-- --publish never` eklendi.
+Çözüm: manuel (workflow_dispatch) tetiklemede build komutuna `-- --publish never`
+eklendi. Tag push ile tetiklenince artık `--publish always` kullanılıyor, bkz. bölüm 8.
 
 **Kalem tablosunda her harfte odak kaybı:** her tuş vuruşunda tablo yeniden çiziliyordu.
 Çözüm: `kalemGuncelle` artık tabloyu yeniden çizmiyor, sadece ilgili hücreyi güncelliyor.
@@ -140,10 +145,43 @@ her şeyi siyah-beyaza zorluyor.
 
 **Mac (yerel):** `npm start` ile çalıştır, `npm run dist:mac` ile dmg üret.
 
-**Windows:** yerel Mac'te derlenemez. GitHub Actions kullanılıyor:
+**Windows — normal (yayınlamadan) derleme:** yerel Mac'te derlenemez, GitHub Actions
+kullanılıyor:
 1. Değişiklikleri push et
-2. GitHub → Actions → "Windows Build" → Run workflow
+2. GitHub → Actions → "Windows Build" → Run workflow (workflow_dispatch)
 3. İş bitince Artifacts → `petsis-servis-formu-windows` zip'i indir → içinde Setup.exe
+4. Bu yol GitHub Release YAYINLAMAZ, otomatik güncelleme bu build'i görmez.
+
+**Windows — sürüm yayınlama (otomatik güncelleme tetikler):**
+1. `package.json` içindeki `version` alanını yükselt (örn. `1.0.0` → `1.0.1`)
+2. Commit at, push et
+3. Tag oluştur ve push et: `git tag v1.0.1 && git push origin v1.0.1`
+4. GitHub Actions bu tag'i görünce otomatik olarak `--publish always` ile derler,
+   bir GitHub Release açar, Setup.exe + `latest.yml` dosyalarını buraya yükler
+5. Uygulama zaten yüklü kullanıcılarda açılışta bu release'i görür, indirir,
+   kullanıcıya "Şimdi kur / Daha sonra" diyaloğu gösterir (`main.js` → `guncellemeKontroluBaslat`)
+
+Tag formatı önemli: `v` + semver (`v1.2.3`), workflow bunu regex ile arıyor.
+Otomatik güncelleme sadece **paketlenmiş** (kurulmuş) uygulamada çalışır; `npm start`
+ile açılan geliştirme ortamında `app.isPackaged` false olduğu için kontrol atlanır.
+
+**Güncellemenin gerçekten çalışıp çalışmadığını nasıl anlarsın:** `main.js` her adımı
+(kontrol başladı / yeni sürüm bulundu / güncel / indirildi / hata) `electron-log` ile
+bir dosyaya yazıyor. Log dosyası kurulu makinede şurada — **electron-log dosya adını
+`package.json` → `productName` değil, `name` alanından (`servis-formu-app`) alıyor**:
+- Windows: `%USERPROFILE%\AppData\Roaming\servis-formu-app\logs\main.log`
+- Mac: `~/Library/Logs/servis-formu-app/main.log`
+
+2026-08-02'de bu şekilde yerel olarak test edildi: `npm run dist:mac` ile paketlenip
+`.app` doğrudan çalıştırıldı (npm start değil), log dosyasında "Güncelleme kontrolü
+başlatıldı" ve ardından beklenen "No published versions on GitHub" hatası görüldü
+(henüz hiç tag/release yayınlanmadığı için normal). Bu test sırasında
+`checkForUpdates()` promise'inin yakalanmadığı, unhandled rejection uyarısına yol
+açtığı ortaya çıktı — `main.js`'te `.catch(() => {})` eklenerek düzeltildi.
+
+Not: gerçek bir güncelleme testi için kurulu **eski** bir sürüm + yayınlanmış **yeni**
+bir sürüm gerekir (bkz. yukarıdaki adımlar). Mac'te kurulum adımı kod imzası olmadığı
+için güvenilir değildir; asıl test Windows'ta yapılmalı.
 
 Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
 ("Ek bilgi" → "Yine de çalıştır" ile geçilir). Kod imzalama sertifikası ücretli,
@@ -153,8 +191,10 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
 
 ## 9. Yapılacaklar / fikirler
 
-- [ ] **Otomatik güncelleme** (electron-updater). Repo private olduğu için token
-      derdi var; en temiz yol repo'yu public yapmak. Kullanıcıya soruldu, karar bekliyor.
+- [x] **Otomatik güncelleme** (electron-updater + GitHub Releases). 2026-08-02'de
+      eklendi — repo public'e çevrildi, `package.json`'a publish config + electron-updater
+      bağımlılığı, `main.js`'e güncelleme kontrolü, workflow'a tag-push'ta publish eklendi.
+      Kullanım için bkz. bölüm 8.
 - [ ] **e-Arşiv entegrasyonu.** Kullanıcı faturaları GİB e-Arşiv Portal'dan kesiyor.
       Portalın resmi API'si yok; otomatik entegrasyon ancak Paraşüt/Uyumsoft gibi
       ücretli özel entegratörlerle olur. Ara çözüm olarak "form verilerini e-Arşiv'e
