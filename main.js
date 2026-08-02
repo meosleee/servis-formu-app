@@ -1,9 +1,15 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const kimlikDeposu = require('./earsiv/kimlikDeposu');
+const earsivClient = require('./earsiv/client');
 
 app.disableHardwareAcceleration();
+
+// electron-log dosya çıktısı: sadece güncelleme kontrolüne değil, e-Arşiv işlemlerine de
+// lazım (geliştirme ortamında da), o yüzden burada paketli/paketsiz ayrımı yapılmadan kurulur.
+log.transports.file.level = 'info';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -25,7 +31,6 @@ function guncellemeKontroluBaslat() {
   // sunucusu olmadığı için electron-updater hata fırlatır, o yüzden atlanır.
   if (!app.isPackaged) return;
 
-  log.transports.file.level = 'info';
   autoUpdater.logger = log;
 
   autoUpdater.autoDownload = true;
@@ -66,7 +71,19 @@ function guncellemeKontroluBaslat() {
   autoUpdater.checkForUpdates().catch(() => {});
 }
 
+function earsivIpcKur() {
+  ipcMain.handle('earsiv:ayarlarOku', () => kimlikDeposu.ozet());
+  ipcMain.handle('earsiv:ayarlarKaydet', (e, veri) => { kimlikDeposu.kaydet(veri); return { ok: true }; });
+  ipcMain.handle('earsiv:ayarlarSil', () => { kimlikDeposu.sil(); return { ok: true }; });
+  ipcMain.handle('earsiv:faturaBaslat', (e, veri) => earsivClient.faturaBaslat(veri));
+  ipcMain.handle('earsiv:smsGonder', (e, veri) => earsivClient.smsGonder(veri));
+  ipcMain.handle('earsiv:smsDogrula', (e, veri) => earsivClient.smsDogrulaVeImzala(veri));
+  ipcMain.handle('earsiv:iptalEt', (e, veri) => earsivClient.iptalEt(veri));
+  ipcMain.handle('earsiv:indir', (e, veri) => earsivClient.indir(veri));
+}
+
 app.whenReady().then(() => {
+  earsivIpcKur();
   createWindow();
   guncellemeKontroluBaslat();
 });

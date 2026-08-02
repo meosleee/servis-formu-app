@@ -96,6 +96,8 @@
     #onizlemeOverlay .form-badge .tarih { color: #6b7280; }
     #onizlemeOverlay button { background: #f3f4f6; border-color: #d7dade; color: #1a1d23; }
     #onizlemeOverlay button.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+    #earsivSmsOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1500; }
+    body.earsiv-sms-acik #earsivSmsOverlay { display: block; }
     .form-badge { text-align: right; white-space: nowrap; padding-left: 20px; }
     .form-badge .no { font-size: 13px; font-weight: 700; }
     .form-badge .tarih { font-size: 11px; }
@@ -144,6 +146,7 @@
     <button class="active" id="sekmeFirmalarBtn" onclick="sekmeGoster('firmalar')">Firmalar</button>
     <button id="sekmeFormBtn" onclick="sekmeGoster('form')">Servis formu</button>
     <button id="sekmeGecmisBtn" onclick="sekmeGoster('gecmis')">Geçmiş formlar</button>
+    <button id="sekmeAyarlarBtn" onclick="sekmeGoster('ayarlar')">Ayarlar</button>
     <div class="spacer"></div>
     <span id="senkronDurum">🔴 Çevrimdışı</span>
     <span class="user-email" id="kullaniciEmail"></span>
@@ -271,13 +274,54 @@
       <div class="card">
         <table>
           <thead>
-            <tr><th>Form no</th><th>Firma</th><th>Adres</th><th>Tarih</th><th>Genel toplam</th><th style="width:170px;"></th></tr>
+            <tr><th>Form no</th><th>Firma</th><th>Adres</th><th>Tarih</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:170px;"></th></tr>
           </thead>
           <tbody id="gecmisListesi"></tbody>
         </table>
       </div>
     </div>
 
+    <div class="sayfa" id="sayfaAyarlar">
+      <h2>Ayarlar</h2>
+      <div class="card">
+        <h3>GİB e-Arşiv bağlantısı</h3>
+        <p class="hint" style="text-transform:none; margin-bottom:10px;">
+          Bu bilgiler sadece bu bilgisayarda, şifreli olarak saklanır — Supabase'e gönderilmez.
+          Test ortamı gerçek/resmi fatura oluşturmaz, denemeler için kullanılır.
+        </p>
+        <div class="form-row">
+          <select id="earsivOrtam" style="max-width:260px;">
+            <option value="TEST">Test ortamı (gerçek fatura kesmez)</option>
+            <option value="PROD">Gerçek ortam (resmi fatura keser)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <input id="earsivKullaniciAdi" placeholder="GİB kullanıcı adı / VKN-TCKN" />
+          <input type="password" id="earsivSifre" placeholder="GİB şifresi" />
+        </div>
+        <div class="form-row">
+          <input id="earsivTelefon" placeholder="SMS telefon no (boş bırakılırsa hesaptan otomatik alınır)" />
+          <button class="primary" id="earsivAyarKaydetBtn">Kaydet</button>
+        </div>
+        <p class="hint" id="earsivAyarDurum" style="text-transform:none;"></p>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="earsivSmsOverlay">
+    <div class="card" style="max-width:360px; margin:80px auto;">
+      <h3>GİB SMS doğrulama</h3>
+      <p class="hint" style="text-transform:none;">
+        Telefonuna gelen kodu gir. Onayladığında fatura GİB'e resmi olarak gönderilir ve GERİ ALINAMAZ.
+      </p>
+      <input id="earsivSmsKod" placeholder="SMS kodu" />
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="primary" onclick="earsivSmsOnayla()">Onayla ve imzala</button>
+        <button onclick="earsivSmsKapat()">Vazgeç</button>
+      </div>
+      <p id="earsivSmsMesaj" style="color:var(--danger); font-size:11px;"></p>
+    </div>
   </div>
 
   <div id="onizlemeOverlay">
@@ -455,10 +499,13 @@
       document.getElementById('sayfaFirmalar').classList.toggle('aktif', sekme === 'firmalar');
       document.getElementById('sayfaServisFormu').classList.toggle('aktif', sekme === 'form');
       document.getElementById('sayfaGecmis').classList.toggle('aktif', sekme === 'gecmis');
+      document.getElementById('sayfaAyarlar').classList.toggle('aktif', sekme === 'ayarlar');
       document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
       document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
       document.getElementById('sekmeGecmisBtn').classList.toggle('active', sekme === 'gecmis');
+      document.getElementById('sekmeAyarlarBtn').classList.toggle('active', sekme === 'ayarlar');
       if (sekme === 'gecmis') gecmisAra();
+      if (sekme === 'ayarlar') earsivAyarlariYukle();
     }
 
     function tumListeleriYenile() {
@@ -933,6 +980,7 @@
         return {
           ...f,
           firma_unvan: firmalar.find(x => x.id === f.firma_id)?.unvan || '-',
+          firma_vkn: firmalar.find(x => x.id === f.firma_id)?.vkn || '',
           lokasyon_adres: lokasyonlar.find(x => x.id === f.lokasyon_id)?.adres || '-',
           genelToplam: araToplam + (araToplam * (f.kdv_orani || 0) / 100),
         };
@@ -952,13 +1000,139 @@
             <td>${f.lokasyon_adres}</td>
             <td>${f.tarih}</td>
             <td>${f.genelToplam.toFixed(2)} ₺</td>
+            <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
             <td>
               <button onclick="formGoruntule('${f.id}')">Görüntüle</button>
               <button class="ghost-danger" onclick="formSilOnayla('${f.id}')">Sil</button>
+              ${earsivButonuUret(f)}
             </td>
           </tr>`).join('')
-        : '<tr><td colspan="6" class="empty">Sonuç bulunamadı</td></tr>';
+        : '<tr><td colspan="7" class="empty">Sonuç bulunamadı</td></tr>';
     }
+
+    // ============ E-ARŞİV ============
+    function earsivDurumEtiketi(durum) {
+      if (durum === 'imzalandi') return '🟢 Kesildi';
+      if (durum === 'taslak_olusturuldu' || durum === 'sms_gonderildi') return '🟡 Yarım kaldı';
+      if (durum === 'hata') return '🔴 Hata';
+      return '⚪ Kesilmedi';
+    }
+
+    function earsivButonuUret(f) {
+      if (f.earsiv_durum === 'imzalandi') {
+        return `<button onclick="earsivIndir('${f.id}')">İndir</button>`;
+      }
+      const devamEdenDurumlar = ['taslak_olusturuldu', 'sms_gonderildi', 'hata'];
+      const etiket = devamEdenDurumlar.includes(f.earsiv_durum) ? 'Devam et' : 'Faturayı Kes';
+      if (!f.firma_vkn) {
+        return `<button disabled title="Bu firmanın VKN bilgisi eksik">${etiket}</button>`;
+      }
+      return `<button class="primary" onclick="faturaKesBaslat('${f.id}')">${etiket}</button>`;
+    }
+
+    let aktifFaturaFormId = null;
+
+    async function faturaKesBaslat(formId) {
+      const f = yerelOku('servis_formlari').find(x => x.id === formId);
+      const firma = yerelOku('firmalar').find(x => x.id === f.firma_id);
+      if (!firma || !firma.vkn) { alert('Bu firmanın VKN bilgisi eksik. Önce Firmalar sekmesinden VKN gir.'); return; }
+      if (!confirm('Bu form için GİB e-Arşiv Portalı üzerinden resmi fatura süreci başlatılacak. Devam edilsin mi?')) return;
+
+      const kalemler = yerelOku('form_kalemleri').filter(k => k.form_id === formId && !k.deleted);
+      const lokasyon = yerelOku('lokasyonlar').find(l => l.id === f.lokasyon_id);
+
+      try {
+        let mevcutUuid, mevcutTarih;
+        const devamEdenDurumlar = ['taslak_olusturuldu', 'sms_gonderildi', 'hata'];
+        if (devamEdenDurumlar.includes(f.earsiv_durum) && f.earsiv_uuid) {
+          mevcutUuid = f.earsiv_uuid;
+          mevcutTarih = f.earsiv_tarih;
+        }
+        const sonuc = await window.earsiv.faturaBaslat({
+          formId, vkn: firma.vkn, unvanYerel: firma.unvan, adresYerel: lokasyon?.adres,
+          kalemler, kdvOrani: f.kdv_orani, mevcutUuid, mevcutTarih,
+        });
+        kayitUpsert('servis_formlari', {
+          ...f, earsiv_durum: 'taslak_olusturuldu', earsiv_uuid: sonuc.uuid,
+          earsiv_tarih: sonuc.tarih, earsiv_ortam: sonuc.ortam, earsiv_hata: null,
+        });
+
+        await window.earsiv.smsGonder({ formId });
+        const guncel = yerelOku('servis_formlari').find(x => x.id === formId);
+        kayitUpsert('servis_formlari', { ...guncel, earsiv_durum: 'sms_gonderildi' });
+
+        aktifFaturaFormId = formId;
+        document.getElementById('earsivSmsKod').value = '';
+        document.getElementById('earsivSmsMesaj').textContent = '';
+        document.body.classList.add('earsiv-sms-acik');
+        gecmisAra();
+      } catch (e) {
+        const guncel = yerelOku('servis_formlari').find(x => x.id === formId) || f;
+        kayitUpsert('servis_formlari', { ...guncel, earsiv_durum: 'hata', earsiv_hata: String(e.message || e) });
+        alert('Fatura kesme başlatılamadı: ' + (e.message || e));
+        gecmisAra();
+      }
+    }
+
+    async function earsivSmsKapat() {
+      document.body.classList.remove('earsiv-sms-acik');
+      if (aktifFaturaFormId) {
+        try { await window.earsiv.iptalEt({ formId: aktifFaturaFormId }); } catch {}
+      }
+    }
+
+    async function earsivSmsOnayla() {
+      const kod = document.getElementById('earsivSmsKod').value.trim();
+      const mesaj = document.getElementById('earsivSmsMesaj');
+      if (!kod) { mesaj.textContent = 'Kod gir.'; return; }
+      if (!confirm('Bu işlem sonrası fatura GİB\'e resmi olarak gönderilecek ve GERİ ALINAMAZ. Onaylıyor musun?')) return;
+      try {
+        const sonuc = await window.earsiv.smsDogrula({ formId: aktifFaturaFormId, kod });
+        const f = yerelOku('servis_formlari').find(x => x.id === aktifFaturaFormId);
+        kayitUpsert('servis_formlari', { ...f, earsiv_durum: 'imzalandi', earsiv_indirme_url: sonuc.indirmeUrl, earsiv_hata: null });
+        document.body.classList.remove('earsiv-sms-acik');
+        aktifFaturaFormId = null;
+        gecmisAra();
+      } catch (e) {
+        mesaj.textContent = 'Kod doğrulanamadı: ' + (e.message || e) + ' Tekrar dene.';
+      }
+    }
+
+    async function earsivIndir(formId) {
+      const f = yerelOku('servis_formlari').find(x => x.id === formId);
+      try {
+        await window.earsiv.indir({ uuid: f.earsiv_uuid, tarih: f.earsiv_tarih, ortam: f.earsiv_ortam });
+      } catch (e) {
+        alert('İndirilemedi: ' + (e.message || e));
+      }
+    }
+
+    async function earsivAyarlariYukle() {
+      const veri = await window.earsiv.ayarlarOku();
+      document.getElementById('earsivOrtam').value = veri.ortam;
+      document.getElementById('earsivKullaniciAdi').value = veri.kullaniciAdi || '';
+      document.getElementById('earsivTelefon').value = veri.telefon || '';
+      document.getElementById('earsivAyarDurum').textContent = veri.tanimliMi
+        ? `Kayıtlı (${veri.ortam === 'PROD' ? 'GERÇEK ortam' : 'test ortamı'})`
+        : 'Henüz kayıtlı bilgi yok.';
+    }
+
+    document.getElementById('earsivAyarKaydetBtn').addEventListener('click', async () => {
+      const kullaniciAdi = document.getElementById('earsivKullaniciAdi').value.trim();
+      const sifre = document.getElementById('earsivSifre').value;
+      const ortam = document.getElementById('earsivOrtam').value;
+      const telefon = document.getElementById('earsivTelefon').value.trim();
+      const durumEl = document.getElementById('earsivAyarDurum');
+      if (!kullaniciAdi || !sifre) { durumEl.textContent = 'Kullanıcı adı ve şifre gerekli.'; return; }
+      if (ortam === 'PROD' && !confirm('GERÇEK (PROD) ortama geçiyorsun — bundan sonra kesilen faturalar RESMİ olur. Emin misin?')) return;
+      try {
+        await window.earsiv.ayarlarKaydet({ kullaniciAdi, sifre, ortam, telefon });
+        document.getElementById('earsivSifre').value = '';
+        durumEl.textContent = 'Kaydedildi.';
+      } catch (e) {
+        durumEl.textContent = 'Kaydedilemedi: ' + (e.message || e);
+      }
+    });
 
     function formGoruntule(formId) {
       const f = yerelOku('servis_formlari').find(x => x.id === formId);

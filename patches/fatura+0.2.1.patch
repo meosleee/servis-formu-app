@@ -1,0 +1,13 @@
+diff --git a/node_modules/fatura/dist/client.js b/node_modules/fatura/dist/client.js
+index 4ec0150..da18dd0 100644
+--- a/node_modules/fatura/dist/client.js
++++ b/node_modules/fatura/dist/client.js
+@@ -69,7 +69,7 @@ class FaturaClient {
+         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52;
+         const faturaUuid = (_a = invoiceDetails.uuid) !== null && _a !== void 0 ? _a : (0, uuid_1.generateUUID)();
+         const invoiceData = {
+-            faturaUuid,
++            ettn: faturaUuid,
+             belgeNumarasi: (_b = invoiceDetails.documentNumber) !== null && _b !== void 0 ? _b : "",
+             faturaTarihi: invoiceDetails.date,
+             saat: invoiceDetails.time,
