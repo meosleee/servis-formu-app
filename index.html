@@ -147,6 +147,7 @@
     <button id="sekmeFormBtn" onclick="sekmeGoster('form')">Servis formu</button>
     <button id="sekmeGecmisBtn" onclick="sekmeGoster('gecmis')">Geçmiş formlar</button>
     <button id="sekmeFaturaKesBtn" onclick="sekmeGoster('faturaKes')">Fatura Kes</button>
+    <button id="sekmeFaturalarimBtn" onclick="sekmeGoster('faturalarim')">Faturalarım</button>
     <button id="sekmeAyarlarBtn" onclick="sekmeGoster('ayarlar')">Ayarlar</button>
     <div class="spacer"></div>
     <span id="senkronDurum">🔴 Çevrimdışı</span>
@@ -216,7 +217,10 @@
           <p>Tel: 0538 342 59 02 &nbsp;|&nbsp; Vakıfbank IBAN: TR64 0001 5001 5800 7319 1517 35</p>
         </div>
       </div>
-      <h2>Yeni servis formu</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 id="formBaslik" style="margin:0;">Yeni servis formu</h2>
+        <button class="no-print" id="formDuzenlemeIptalBtn" onclick="formDuzenlemeIptal()" style="display:none;">Vazgeç, yeni forma dön</button>
+      </div>
       <div class="card">
         <div class="form-row">
           <div style="flex:1;"><label class="hint">Firma</label><select id="formFirmaSecim" style="width:100%;"></select></div>
@@ -256,9 +260,19 @@
           <div class="grand"><span>Genel toplam</span><span id="genelToplamGoster">0,00 ₺</span></div>
         </div>
       </div>
-      <div class="no-print" style="margin-top:18px; display:flex; gap:8px;">
+      <div class="card no-print" style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h3 style="margin:0 0 2px;">Yazdırma seçeneği</h3>
+          <span class="hint" style="margin:0;">Kağıt çıktısında imza alanı gösterilsin mi?</span>
+        </div>
+        <label style="display:flex; align-items:center; gap:7px; flex:none; cursor:pointer;">
+          <input type="checkbox" id="formImzaGosterCheckbox" checked style="width:auto; accent-color:var(--accent);" />
+          <span style="font-size:12.5px;">İmza alanı yazdırılsın</span>
+        </label>
+      </div>
+      <div class="no-print" style="display:flex; gap:8px;">
         <button onclick="onizlemeYeniForm()">Önizle</button>
-        <button class="primary" onclick="formKaydetVeYazdir()">Kaydet ve yazdır</button>
+        <button class="primary" id="formKaydetBtn" onclick="formKaydetVeYazdir()">Kaydet ve yazdır</button>
       </div>
     </div>
 
@@ -331,6 +345,29 @@
             <tr><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:170px;"></th></tr>
           </thead>
           <tbody id="manuelFaturaListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sayfa" id="sayfaFaturalarim">
+      <h2>Faturalarım</h2>
+      <p class="hint" style="text-transform:none; margin-bottom:10px;">
+        Servis formundan veya "Fatura Kes" sekmesinden kesilmiş/başlatılmış tüm e-Arşiv faturaları tek listede.
+      </p>
+      <div class="card">
+        <div class="form-row">
+          <input id="faturalarimFirmaAra" placeholder="Firma adına göre ara" />
+          <input id="faturalarimTarihBaslangic" type="date" />
+          <input id="faturalarimTarihBitis" type="date" />
+          <button class="primary" onclick="faturalarimYenile()">Ara</button>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>Kaynak</th><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:220px;"></th></tr>
+          </thead>
+          <tbody id="faturalarimListesi"></tbody>
         </table>
       </div>
     </div>
@@ -413,6 +450,7 @@
     let duzenlenenLokasyonId = null;
     let duzenlenenUrunId = null;
     let formKalemleri = [];
+    let duzenlenenServisFormuId = null;
     let senkronMesgul = false;
 
     // ============ YEREL KATMAN ============
@@ -573,14 +611,17 @@
       document.getElementById('sayfaServisFormu').classList.toggle('aktif', sekme === 'form');
       document.getElementById('sayfaGecmis').classList.toggle('aktif', sekme === 'gecmis');
       document.getElementById('sayfaFaturaKes').classList.toggle('aktif', sekme === 'faturaKes');
+      document.getElementById('sayfaFaturalarim').classList.toggle('aktif', sekme === 'faturalarim');
       document.getElementById('sayfaAyarlar').classList.toggle('aktif', sekme === 'ayarlar');
       document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
       document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
       document.getElementById('sekmeGecmisBtn').classList.toggle('active', sekme === 'gecmis');
       document.getElementById('sekmeFaturaKesBtn').classList.toggle('active', sekme === 'faturaKes');
+      document.getElementById('sekmeFaturalarimBtn').classList.toggle('active', sekme === 'faturalarim');
       document.getElementById('sekmeAyarlarBtn').classList.toggle('active', sekme === 'ayarlar');
       if (sekme === 'gecmis') gecmisAra();
       if (sekme === 'faturaKes') manuelFaturaListesiYenile();
+      if (sekme === 'faturalarim') faturalarimYenile();
       if (sekme === 'ayarlar') earsivAyarlariYukle();
     }
 
@@ -886,22 +927,43 @@
     }
     document.getElementById('formKdv').addEventListener('input', toplamlariHesapla);
 
+    let formKaydediliyor = false;
     function formKaydetVeYazdir() {
+      // Kaydettikten sonra form alanları doluymuş gibi kalıyordu (bilerek — düzenleme
+      // yapmak isteyen tekrar üstüne yazabilsin diye) ama bu, farkında olmadan
+      // "Kaydet ve yazdır"a ikinci kez basılıp aynı formun iki ayrı kayıt olarak
+      // kaydedilmesine yol açtı (Batuhan'ın bildirdiği "bir kesildi bir kesilmedi"
+      // hatası — muhtemelen aynı içerikle iki ayrı form_no oluşmuştu). Artık başarılı
+      // kayıttan sonra form her zaman temizleniyor, ayrıca hızlı çift tıklamaya karşı
+      // da koruma var.
+      if (formKaydediliyor) return;
       const firmaId = document.getElementById('formFirmaSecim').value;
       const lokasyonId = document.getElementById('formLokasyonSecim').value;
       const tarih = document.getElementById('formTarih').value;
 
       if (!firmaId || !lokasyonId || !tarih) { alert('Firma, adres ve tarih seçmen gerekiyor.'); return; }
       if (!formKalemleri.length) { alert('En az bir kalem eklemen gerekiyor.'); return; }
+      formKaydediliyor = true;
 
       const kdvOrani = parseFloat(document.getElementById('formKdv').value) || 0;
       const sikayet = document.getElementById('formSikayet').value;
       const yapilanIslem = document.getElementById('formYapilanIslem').value;
 
-      const yil = new Date(tarih).getFullYear();
-      const mevcutSayi = yerelOku('servis_formlari').length;
-      const formNo = `F-${yil}-${String(mevcutSayi + 1).padStart(4, '0')}`;
-      const formId = crypto.randomUUID();
+      let formId, formNo;
+      if (duzenlenenServisFormuId) {
+        const mevcut = yerelOku('servis_formlari').find(x => x.id === duzenlenenServisFormuId);
+        if (!mevcut) { alert('Düzenlenen form bulunamadı, sayfa yenilendi.'); duzenlenenServisFormuId = null; formKaydediliyor = false; return; }
+        formId = mevcut.id;
+        formNo = mevcut.form_no;
+        // Eski kalemleri yumuşak sil, yerine güncel formKalemleri'ni yaz — servis
+        // formlarında kalem kaydı böyle tutuluyor (bkz. manuel fatura düzenlemesiyle aynı desen yok, burada ilk kez).
+        yerelOku('form_kalemleri').filter(k => k.form_id === formId && !k.deleted).forEach(k => kayitSil('form_kalemleri', k.id));
+      } else {
+        const yil = new Date(tarih).getFullYear();
+        const mevcutSayi = yerelOku('servis_formlari').length;
+        formNo = `F-${yil}-${String(mevcutSayi + 1).padStart(4, '0')}`;
+        formId = crypto.randomUUID();
+      }
 
       kayitUpsert('servis_formlari', {
         id: formId, form_no: formNo, firma_id: firmaId, lokasyon_id: lokasyonId,
@@ -923,9 +985,61 @@
         lokasyonAdres: lokasyon ? lokasyon.adres : '',
         tarih, sikayet, yapilanIslem,
         kalemler: formKalemleri, kdvOrani,
+        imzaGoster: document.getElementById('formImzaGosterCheckbox').checked,
       });
       onizlemeAc(html);
       setTimeout(() => window.print(), 300);
+
+      // Kayıt/güncelleme başarılı — formu sıfırla (düzenleme modundaysa başlık/buton
+      // da eski haline döner). Yanlışlıkla aynı forma ikinci kez "Kaydet ve yazdır"
+      // basılıp tekrar kaydedilmesini engeller.
+      formDuzenlemeIptal();
+      formKaydediliyor = false;
+    }
+
+    // Geçmiş'ten "Düzenle" tıklanınca formu doldurup Servis Formu sekmesine geçer.
+    // Fatura zaten kesilmişse (earsiv_durum='imzalandi') bu fonksiyon hiç çağrılmıyor
+    // (buton disabled), GİB'e gönderilmiş resmi veriyle yerel kayıt arasında
+    // uyuşmazlık oluşmasın diye.
+    function formDuzenle(formId) {
+      const f = yerelOku('servis_formlari').find(x => x.id === formId);
+      if (!f) return;
+      if (f.earsiv_durum === 'imzalandi') { alert('Bu forma ait fatura zaten kesildi, servis formu artık düzenlenemez.'); return; }
+
+      duzenlenenServisFormuId = formId;
+      document.getElementById('formFirmaSecim').value = f.firma_id;
+      formLokasyonListesiniYenile();
+      document.getElementById('formLokasyonSecim').value = f.lokasyon_id;
+      document.getElementById('formTarih').value = f.tarih;
+      document.getElementById('formSikayet').value = f.sikayet || '';
+      document.getElementById('formYapilanIslem').value = f.yapilan_islem || '';
+      document.getElementById('formKdv').value = f.kdv_orani || 0;
+
+      const kalemler = yerelOku('form_kalemleri').filter(k => k.form_id === formId && !k.deleted);
+      formKalemleri = kalemler.map(k => ({
+        seriNo: k.seri_no || '', urunId: k.urun_id || '', aciklama: k.aciklama, adet: k.adet, birimFiyat: k.birim_fiyat,
+      }));
+      kalemTablosunuCiz();
+
+      document.getElementById('formBaslik').textContent = `Düzenleniyor: ${f.form_no}`;
+      document.getElementById('formKaydetBtn').textContent = 'Güncelle ve yazdır';
+      document.getElementById('formDuzenlemeIptalBtn').style.display = '';
+      sekmeGoster('form');
+    }
+
+    function formDuzenlemeIptal() {
+      duzenlenenServisFormuId = null;
+      formKalemleri = [];
+      kalemTablosunuCiz();
+      document.getElementById('formFirmaSecim').selectedIndex = -1;
+      document.getElementById('formLokasyonSecim').innerHTML = '';
+      document.getElementById('formTarih').value = '';
+      document.getElementById('formSikayet').value = '';
+      document.getElementById('formYapilanIslem').value = '';
+      document.getElementById('formKdv').value = 20;
+      document.getElementById('formBaslik').textContent = 'Yeni servis formu';
+      document.getElementById('formKaydetBtn').textContent = 'Kaydet ve yazdır';
+      document.getElementById('formDuzenlemeIptalBtn').style.display = 'none';
     }
 
     // ============ FATURA KES (bağımsız, servis formundan kopuk) ============
@@ -1064,6 +1178,61 @@
       manuelFaturaListesiYenile();
     }
 
+    // ============ FATURALARIM (servis formu + manuel, tek liste) ============
+    function faturalarimYenile() {
+      const firmaAdi = (document.getElementById('faturalarimFirmaAra').value || '').toLowerCase();
+      const baslangic = document.getElementById('faturalarimTarihBaslangic').value;
+      const bitis = document.getElementById('faturalarimTarihBitis').value;
+
+      const firmalar = yerelOku('firmalar');
+      const servisKalemler = yerelOku('form_kalemleri');
+      const manuelKalemler = yerelOku('manuel_fatura_kalemleri');
+
+      // Servis formundan sadece e-Arşiv süreci başlamış olanlar (earsiv_durum dolu) —
+      // hiç fatura kesilmemiş servis formları zaten "Geçmiş" sekmesinde duruyor,
+      // burası sadece e-Arşiv ile ilgili kayıtlar için.
+      const servisFaturalari = aktifler('servis_formlari').filter(f => f.earsiv_durum).map(f => {
+        const kalemler = servisKalemler.filter(k => k.form_id === f.id && !k.deleted);
+        const araToplam = kalemler.reduce((s, k) => s + (k.adet * k.birim_fiyat), 0);
+        return {
+          ...f, tablo: 'servis_formlari', kaynak: 'Servis Formu',
+          firma_unvan: firmalar.find(x => x.id === f.firma_id)?.unvan || '-',
+          firma_vkn: firmalar.find(x => x.id === f.firma_id)?.vkn || '',
+          genelToplam: araToplam + (araToplam * (f.kdv_orani || 0) / 100),
+        };
+      });
+
+      const manuelFaturalar = aktifler('manuel_faturalar').map(f => {
+        const kalemler = manuelKalemler.filter(k => k.fatura_id === f.id && !k.deleted);
+        const araToplam = kalemler.reduce((s, k) => s + (k.adet * k.birim_fiyat), 0);
+        return {
+          ...f, tablo: 'manuel_faturalar', kaynak: 'Fatura Kes',
+          firma_unvan: firmalar.find(x => x.id === f.firma_id)?.unvan || '-',
+          firma_vkn: firmalar.find(x => x.id === f.firma_id)?.vkn || '',
+          genelToplam: araToplam + (araToplam * (f.kdv_orani || 0) / 100),
+        };
+      });
+
+      let sonuclar = [...servisFaturalari, ...manuelFaturalar];
+      if (firmaAdi) sonuclar = sonuclar.filter(f => f.firma_unvan.toLowerCase().includes(firmaAdi));
+      if (baslangic) sonuclar = sonuclar.filter(f => f.tarih >= baslangic);
+      if (bitis) sonuclar = sonuclar.filter(f => f.tarih <= bitis);
+      sonuclar.sort((a, b) => (b.tarih || '').localeCompare(a.tarih || ''));
+
+      const tbody = document.getElementById('faturalarimListesi');
+      tbody.innerHTML = sonuclar.length
+        ? sonuclar.map(f => `
+          <tr>
+            <td>${f.kaynak}</td>
+            <td>${f.tarih || '-'}</td>
+            <td>${f.firma_unvan}</td>
+            <td>${f.genelToplam.toFixed(2)} ₺</td>
+            <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
+            <td>${earsivButonuUret(f, f.tablo)}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="6" class="empty">Henüz kesilmiş/başlatılmış fatura yok</td></tr>';
+    }
+
     // ============ ÖNİZLEME ============
     function letterheadHtml(rozet) {
       return `
@@ -1135,6 +1304,7 @@
             <div class="grand"><span>Genel toplam</span><span>${genelToplam.toFixed(2)} ₺</span></div>
           </div>
         </div>
+        ${data.imzaGoster === false ? '' : `
         <div style="display:flex; gap:40px; margin-top:50px;">
           <div style="flex:1; border-top:1px solid #9ca3af; padding-top:8px;">
             <p style="margin:0 0 26px; font-size:10.5px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em;">Servis Yetkilisi</p>
@@ -1146,7 +1316,7 @@
             <p style="margin:0; font-size:11.5px;">Adı Soyadı: ..................................</p>
             <p style="margin:18px 0 0; font-size:11.5px;">İmza: ..................................</p>
           </div>
-        </div>
+        </div>`}
       `;
     }
     // e-Arşiv fatura önizlemesi — servis formu önizlemesiyle (formOnizlemeHtml) aynı
@@ -1222,6 +1392,7 @@
         yapilanIslem: document.getElementById('formYapilanIslem').value,
         kalemler: formKalemleri,
         kdvOrani: parseFloat(document.getElementById('formKdv').value) || 0,
+        imzaGoster: document.getElementById('formImzaGosterCheckbox').checked,
       });
       onizlemeAc(html);
     }
@@ -1265,6 +1436,9 @@
             <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
             <td>
               <button onclick="formGoruntule('${f.id}')">Görüntüle</button>
+              ${f.earsiv_durum === 'imzalandi'
+                ? `<button disabled title="Fatura zaten kesildi, servis formu artık düzenlenemez">Düzenle</button>`
+                : `<button onclick="formDuzenle('${f.id}')">Düzenle</button>`}
               <button class="ghost-danger" onclick="formSilOnayla('${f.id}')">Sil</button>
               ${earsivButonuUret(f, 'servis_formlari')}
             </td>
@@ -1296,14 +1470,17 @@
 
     function earsivButonuUret(f, tablo) {
       const onizleBtn = `<button onclick="earsivOnizlemeGoster('${tablo}', '${f.id}')">Önizle</button>`;
+      // GİB'de gerçekten bir kaydı olan (taslak veya imzalı) her fatura için, indirmeden
+      // sadece bakmak isteyenlere GİB'in kendi resmi belge içeriğini gösteren buton.
+      const goruntuleBtn = f.earsiv_uuid ? `<button onclick="earsivGoruntule('${tablo}', '${f.id}')">Faturayı Görüntüle</button>` : '';
       if (f.earsiv_durum === 'imzalandi') {
-        return `${onizleBtn} <button onclick="earsivIndir('${tablo}', '${f.id}')">İndir</button>`;
+        return `${onizleBtn} ${goruntuleBtn} <button onclick="earsivIndir('${tablo}', '${f.id}')">İndir</button>`;
       }
       const etiket = EARSIV_DEVAM_EDEN_DURUMLAR.includes(f.earsiv_durum) ? 'Devam et' : 'Faturayı Kes';
       if (!f.firma_vkn) {
-        return `${onizleBtn} <button disabled title="Bu firmanın VKN bilgisi eksik">${etiket}</button>`;
+        return `${onizleBtn} ${goruntuleBtn} <button disabled title="Bu firmanın VKN bilgisi eksik">${etiket}</button>`;
       }
-      return `${onizleBtn} <button class="primary" onclick="earsivFaturaKesTikla('${tablo}', '${f.id}')">${etiket}</button>`;
+      return `${onizleBtn} ${goruntuleBtn} <button class="primary" onclick="earsivFaturaKesTikla('${tablo}', '${f.id}')">${etiket}</button>`;
     }
 
     let aktifFaturaFormId = null;
@@ -1336,6 +1513,24 @@
       document.getElementById('onizlemeFaturaOnaylaBtn').style.display = 'none';
       document.getElementById('onizlemeButonlarServis').style.display = 'none';
       document.getElementById('onizlemeButonlarFatura').style.display = 'flex';
+    }
+
+    // "Önizle"den farkı: yereldeki verilerden yeniden kurulmuyor, GİB'e sorup
+    // GERÇEK resmi belge içeriğini gösteriyor — indirmeden, dosya oluşturmadan.
+    async function earsivGoruntule(tablo, id) {
+      const kayit = yerelOku(tablo).find(x => x.id === id);
+      if (!kayit || !kayit.earsiv_uuid) return;
+      try {
+        const sonuc = await window.earsiv.goruntule({
+          uuid: kayit.earsiv_uuid, ortam: kayit.earsiv_ortam, imzali: kayit.earsiv_durum === 'imzalandi',
+        });
+        onizlemeAc(sonuc.html);
+        document.getElementById('onizlemeFaturaOnaylaBtn').style.display = 'none';
+        document.getElementById('onizlemeButonlarServis').style.display = 'none';
+        document.getElementById('onizlemeButonlarFatura').style.display = 'flex';
+      } catch (e) {
+        alert('Görüntülenemedi: ' + (e.message || e));
+      }
     }
 
     async function earsivFaturaKesTikla(tablo, id) {

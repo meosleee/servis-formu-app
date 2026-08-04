@@ -313,8 +313,20 @@ async function indir({ uuid, tarih, ortam }) {
   const pencere = new BrowserWindow({ show: false });
   try {
     await pencere.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-    // GİB'in HTML'i standart A4'e tam sığmıyor, 2. sayfaya taşıyordu — hafif küçülterek tek sayfaya sığdırıyoruz.
-    const pdfVerisi = await pencere.webContents.printToPDF({ printBackground: true, scale: 0.9 });
+    // GİB'in HTML'i her faturada farklı uzunlukta (kalem sayısına göre) — sabit bir
+    // küçültme oranı (0.9) bazı faturalarda yetmiyordu, 2. sayfaya taşıyordu. Bunun
+    // yerine gerçek içerik yüksekliğini ölçüp A4'e HER ZAMAN tam sığacak oranı
+    // otomatik hesaplıyoruz.
+    const icerikYuksekligiPx = await pencere.webContents.executeJavaScript('document.body.scrollHeight');
+    const KENAR_BOSLUK_INC = 0.4;
+    const kullanilabilirYukseklikPx = (11.69 - 2 * KENAR_BOSLUK_INC) * 96;
+    const olcek = Math.min(1, (kullanilabilirYukseklikPx / icerikYuksekligiPx) * 0.97);
+    const pdfVerisi = await pencere.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      scale: olcek,
+      margins: { marginType: 'custom', top: KENAR_BOSLUK_INC, bottom: KENAR_BOSLUK_INC, left: KENAR_BOSLUK_INC, right: KENAR_BOSLUK_INC },
+    });
     const hedefYol = path.join(app.getPath('downloads'), `fatura-${uuid}.pdf`);
     fs.writeFileSync(hedefYol, pdfVerisi);
     await shell.openPath(hedefYol);
@@ -324,4 +336,20 @@ async function indir({ uuid, tarih, ortam }) {
   }
 }
 
-module.exports = { faturaBaslat, smsGonder, smsDogrulaVeImzala, iptalEt, indir };
+// Sadece görüntülemek için — dosyaya kaydetmeden, tarayıcı/PDF açmadan GİB'in resmi
+// belge HTML'ini çekip döndürür. Uygulamanın kendi beyaz kağıt önizleyicisinde
+// (`onizlemeOverlay`) gösterilir.
+async function goruntule({ uuid, ortam, imzali }) {
+  const kimlik = kimlikDeposu.oku();
+  if (!kimlik) throw new Error('GİB kimlik bilgisi yok.');
+  const client = createFaturaClient(ortam || kimlik.ortam);
+  const token = await client.getToken(kimlik.kullaniciAdi, kimlik.sifre);
+  try {
+    const html = await client.getInvoiceHTML(token, uuid, { signed: !!imzali });
+    return { html };
+  } finally {
+    await client.logout(token).catch(() => {});
+  }
+}
+
+module.exports = { faturaBaslat, smsGonder, smsDogrulaVeImzala, iptalEt, indir, goruntule };

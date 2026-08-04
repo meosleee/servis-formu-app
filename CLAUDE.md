@@ -135,6 +135,16 @@ eklendi. Tag push ile tetiklenince artık `--publish always` kullanılıyor, bkz
 **Kalem tablosunda her harfte odak kaybı:** her tuş vuruşunda tablo yeniden çiziliyordu.
 Çözüm: `kalemGuncelle` artık tabloyu yeniden çizmiyor, sadece ilgili hücreyi güncelliyor.
 
+**Aynı servis formu iki kayıt olarak Geçmiş'te görünüyordu (2026-08-04):** "Kaydet ve
+yazdır" başarılı kayıttan sonra form alanlarını BİLEREK temizlemiyordu (üstüne yazıp
+tekrar kaydedebilsin diye tasarlanmıştı) — ama bu, kullanıcı formun zaten kaydedildiğini
+fark etmeden butona ikinci kez basınca aynı içerikle YENİ bir `id`/`form_no` üreten
+ikinci bir kayıt oluşmasına yol açtı (Geçmiş'te "aynı form" biri 🟢 kesildi biri ⚪
+kesilmedi olarak görünüyordu — aslında iki ayrı kayıttı). Düzeltme: `formKaydetVeYazdir`
+artık başarılı kayıttan sonra HER ZAMAN formu temizliyor (`formDuzenlemeIptal()` hem
+düzenleme hem yeni-kayıt modunda çağrılıyor), ayrıca `formKaydediliyor` bayrağıyla
+hızlı çift tıklamaya karşı da korunuyor.
+
 **Koyu tema + yazdırma:** uygulama koyu tema, ama önizleme ve çıktı beyaz kağıt olmalı.
 `#onizlemeOverlay` içinde renkler beyaza override ediliyor, `@media print` bloğu da
 her şeyi siyah-beyaza zorluyor.
@@ -209,9 +219,20 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
       — hepsi bölüm 11'de belgelendi.
 - [ ] Şifre sıfırlama akışı
 - [ ] Google ile giriş (Google Cloud Console ayarı gerekir)
-- [ ] Kesilmiş formu sonradan düzenleme
+- [x] **Kesilmiş formu sonradan düzenleme** (2026-08-04). Servis formu, Geçmiş'ten
+      "Düzenle" ile açılıp güncellenebiliyor — ama SADECE fatura kesilmemişse
+      (`earsiv_durum !== 'imzalandi'`). Fatura zaten kesilmiş bir formda "Düzenle"
+      butonu disabled, GİB'e giden resmi veriyle yerel kayıt arasında uyuşmazlık
+      oluşmasın diye. Detaylar için bkz. bölüm 12.
 - [ ] Aylık ciro / form sayısı özeti
 - [ ] Uygulama ikonu (şu an varsayılan Electron ikonu kullanılıyor)
+- [x] **e-Arşiv fatura görüntüleme (indirmeden)** (2026-08-04). "İndir" her seferinde
+      PDF üretip diske yazıyordu — sadece bakmak isteyenler için "Görüntüle" (aslında
+      "Faturayı Görüntüle") butonu eklendi, GİB'in HTML içeriğini dosyaya hiç
+      kaydetmeden uygulamanın kendi önizleyicisinde (`onizlemeOverlay`) gösteriyor.
+- [x] **"Faturalarım" sekmesi** (2026-08-04). Servis formundan ve "Fatura Kes"ten
+      kesilen/başlatılan tüm e-Arşiv faturaları artık tek bir sekmede (`faturalarim`)
+      birleşik listeleniyor, arama/filtre var. Detaylar için bkz. bölüm 12.
 
 ---
 
@@ -559,3 +580,49 @@ doluysa yeniden oluşturmuyor.
 
 **Kapsam dışı (v1):** iptal/storno akışı, otomatik/toplu kesim, kalem bazlı farklı KDV
 oranı, faturanın e-posta ile otomatik gönderimi, çoklu cihaz arası GİB kimlik senkronu.
+
+---
+
+## 12. Faturalarım sekmesi, fatura görüntüleme ve servis formu düzenleme (2026-08-04)
+
+Batuhan tek seferde dört eksik bildirdi: (1) kesilen faturayı sadece "İndir" (her
+seferinde PDF üretip diske yazan, GİB'e giriş yapan) ile görebiliyordu, salt görüntüleme
+yoktu; (2) servis formu ve "Fatura Kes" kaynaklı faturalar iki ayrı yerde dağınıktı;
+(3) kaydedilmiş bir servis formunu sonradan düzenleyemiyordu; (4) imza checkbox'ı
+(bkz. bölüm 11 sonu, aynı gün acil eklenmişti) dağınık duruyordu. İki mimari kararı
+(Faturalarım için yeni sekme mi yoksa Fatura Kes'e ekleme mi; düzenlemeyi fatura
+kesilmişse engelle mi yoksa uyarıp izin ver mi) AskUserQuestion ile Batuhan'a soruldu,
+ikisinde de önerilen (daha güvenli/temiz) seçenek onaylandı.
+
+**Fatura görüntüleme (indirmeden):** `earsiv/client.js` → yeni `goruntule()` fonksiyonu,
+GİB'e giriş yapıp `client.getInvoiceHTML()` (`EARSIV_PORTAL_FATURA_GOSTER`) ile HTML'i
+çekip DÖNDÜRÜYOR — `indir()`'in aksine hiç dosyaya yazmıyor, hiç `BrowserWindow`/PDF
+oluşturmuyor. Yeni IPC kanalı `earsiv:goruntule` (main.js, preload.js). `index.html` →
+`earsivGoruntule(tablo, id)` bu HTML'i mevcut `onizlemeOverlay`'de gösteriyor.
+`earsivButonuUret`'e `f.earsiv_uuid` doluysa görünen "Faturayı Görüntüle" butonu eklendi
+(mevcut "Önizle" butonuyla — o yereldeki veriden yeniden kurulan bir taklit, bu GERÇEK
+GİB içeriği — karışmasın diye farklı isim verildi).
+
+**"Faturalarım" sekmesi:** Yeni `sayfaFaturalarim` + `faturalarimYenile()`.
+`servis_formlari` (sadece `earsiv_durum` dolu olanlar — hiç fatura kesilmemiş servis
+formları zaten Geçmiş'te kalıyor, karışmasın) ile `manuel_faturalar`'ı (hepsi, çünkü o
+tablo zaten sırf e-Arşiv için var) birleştirip tek listede gösteriyor, `earsivButonuUret`
+aynı şekilde paylaşılıyor. Firma adı + tarih aralığı filtresi var (`gecmisAra`/
+`manuelFaturaListesiYenile` ile aynı desen). Bu görünümden silme yok — silme hâlâ
+kaynak sekmelerde (Geçmiş / Fatura Kes).
+
+**Servis formu sonradan düzenleme:** Geçmiş listesinde "Düzenle" butonu —
+`f.earsiv_durum === 'imzalandi'` ise **disabled** (GİB'e resmen gönderilmiş veriyle
+yerel kayıt arasında uyuşmazlık oluşmasın diye, Batuhan'ın seçtiği kural). `formDuzenle(id)`
+kaydı + kalemlerini Servis Formu sekmesinin alanlarına dolduruyor, `duzenlenenServisFormuId`
+global'ini set edip sekmeyi açıyor; başlık ("Düzenleniyor: F-2026-00xx") ve "Kaydet ve
+yazdır" butonu ("Güncelle ve yazdır") buna göre değişiyor, "Vazgeç, yeni forma dön"
+butonu görünür olur. `formKaydetVeYazdir()` düzenleme modundaysa YENİ id/form_no
+üretmek yerine mevcudu kullanıyor, eski `form_kalemleri` satırlarını yumuşak silip
+güncel `formKalemleri`'ni yeniden yazıyor, kayıttan sonra `formDuzenlemeIptal()` ile
+formu sıfırlıyor. **Normal (düzenleme dışı) "Kaydet ve yazdır" davranışı değişmedi** —
+o hâlâ form alanlarını temizlemiyor (mevcut davranış korundu, sadece düzenleme modu
+kendini sıfırlıyor).
+
+**İmza checkbox'ı** artık kendi kartında ("Yazdırma seçeneği" başlıklı), buton
+satırından ayrı, `accent-color` ile vurgulu — dağınık tek satırlık haliyle değil.

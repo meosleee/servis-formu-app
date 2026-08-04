@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('earsiv', {
   smsDogrula: (veri) => ipcRenderer.invoke('earsiv:smsDogrula', veri),
   iptalEt: (veri) => ipcRenderer.invoke('earsiv:iptalEt', veri),
   indir: (veri) => ipcRenderer.invoke('earsiv:indir', veri),
+  goruntule: (veri) => ipcRenderer.invoke('earsiv:goruntule', veri),
 });

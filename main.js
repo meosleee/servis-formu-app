@@ -80,6 +80,7 @@ function earsivIpcKur() {
   ipcMain.handle('earsiv:smsDogrula', (e, veri) => earsivClient.smsDogrulaVeImzala(veri));
   ipcMain.handle('earsiv:iptalEt', (e, veri) => earsivClient.iptalEt(veri));
   ipcMain.handle('earsiv:indir', (e, veri) => earsivClient.indir(veri));
+  ipcMain.handle('earsiv:goruntule', (e, veri) => earsivClient.goruntule(veri));
 }
 
 app.whenReady().then(() => {
