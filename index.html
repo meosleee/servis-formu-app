@@ -96,6 +96,13 @@
     #onizlemeOverlay .form-badge .tarih { color: #6b7280; }
     #onizlemeOverlay button { background: #f3f4f6; border-color: #d7dade; color: #1a1d23; }
     #onizlemeOverlay button.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+    /* Teklif Formu: kutucuklar antetli kağıdın üstünde, arka planları saydam olmalı ki
+       antet (watermark) altlarında görünsün, kapatılmasın. */
+    #onizlemeOverlay .teklif-antet-sayfa .card,
+    #onizlemeOverlay .teklif-antet-sayfa .totals-box,
+    #onizlemeOverlay .teklif-antet-sayfa table th {
+      background: transparent !important;
+    }
     #earsivSmsOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1500; }
     body.earsiv-sms-acik #earsivSmsOverlay { display: block; }
     .form-badge { text-align: right; white-space: nowrap; padding-left: 20px; }
@@ -105,7 +112,23 @@
     @media print {
       .no-print { display: none !important; }
       body { background: #fff !important; color: #000 !important; height: auto; font-size: 9.5px; }
+      /* Yazdırma her zaman #onizlemeOverlay üzerinden oluyor (window.print() hep
+         onizlemeAc()'ten sonra çağrılıyor) — ama print sırasında position:fixed normal
+         akışa döndüğü için (birçok tarayıcının print motorunun bilinen davranışı),
+         .content (aktif sekme) gizlenmezse overlay'in ÜSTÜNE değil ÖNÜNE, aynı sayfada
+         art arda basılıyordu. Teklif Formu'nu yazdırırken fark edildi (2026-08-06). */
+      .content { display: none !important; }
       .content, #onizlemeOverlay { padding: 0; }
+      /* @page margin (14mm) normalde HTML içeriğinin dışında kalıyor — Teklif Formu'nun
+         antetli kağıt arka planı TAM SAYFAYI (kenarlara kadar) kaplamalı, o yüzden
+         negatif margin ile sayfa kenarına kadar taşırıp (full-bleed), içeriğin kendisini
+         de aynı miktar ekstra padding ile geri içeri çekiyoruz. */
+      .teklif-antet-sayfa {
+        margin: -14mm !important;
+        width: calc(100% + 28mm) !important;
+        min-height: 297mm !important;
+        padding: 92mm 22mm 20mm !important;
+      }
       .card { border: none !important; background: #fff !important; padding: 0; margin-bottom: 10px; }
       table, th, td { border: 1px solid #444 !important; }
       th { background: #f2f2f2 !important; color: #333 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 8.5px; }
@@ -147,6 +170,7 @@
     <button id="sekmeFormBtn" onclick="sekmeGoster('form')">Servis formu</button>
     <button id="sekmeGecmisBtn" onclick="sekmeGoster('gecmis')">Geçmiş formlar</button>
     <button id="sekmeFaturaKesBtn" onclick="sekmeGoster('faturaKes')">Fatura Kes</button>
+    <button id="sekmeTeklifBtn" onclick="sekmeGoster('teklif')">Teklif Formu</button>
     <button id="sekmeFaturalarimBtn" onclick="sekmeGoster('faturalarim')">Faturalarım</button>
     <button id="sekmeAyarlarBtn" onclick="sekmeGoster('ayarlar')">Ayarlar</button>
     <div class="spacer"></div>
@@ -349,6 +373,76 @@
       </div>
     </div>
 
+    <div class="sayfa" id="sayfaTeklif">
+      <h2>Teklif Formu</h2>
+      <p class="hint" style="text-transform:none; margin-bottom:10px;">
+        Müşteriye fiyat teklifi hazırla — antetli kağıt üzerine, istersen dövizli fiyatla.
+      </p>
+      <div class="card">
+        <div class="form-row">
+          <div style="flex:1;"><label class="hint">Firma</label><select id="teklifFirmaSecim" style="width:100%;"></select></div>
+          <div style="flex:1;"><label class="hint">Tarih</label><input type="date" id="teklifTarih" style="width:100%;" /></div>
+          <div style="flex:1;"><label class="hint">Para birimi</label>
+            <select id="teklifParaBirimi" style="width:100%;">
+              <option value="TRY">TL</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
+          <div style="flex:1;"><label class="hint">Kur (1 birim = ? TL)</label><input type="number" step="0.0001" id="teklifKur" value="1" style="width:100%;" /></div>
+        </div>
+      </div>
+      <div class="card">
+        <label class="hint">Açıklama (kağıtta başlıksız çıkar — sadece yazdığın metin, boş bırakırsan elle yazman için boş kutu kalır)</label>
+        <textarea id="teklifOnNot" rows="3" style="width:100%;"></textarea>
+      </div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">Kalemler</h3>
+          <button onclick="teklifKalemEkle()">+ Kalem ekle</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:5%;">Sıra</th>
+              <th style="width:34%;">Hizmet / ürün</th>
+              <th style="width:10%;">Miktar</th>
+              <th style="width:10%;">Cinsi</th>
+              <th style="width:15%;">Birim fiyat</th>
+              <th style="width:15%;">Toplam</th>
+              <th style="width:6%;"></th>
+            </tr>
+          </thead>
+          <tbody id="teklifKalemTablosu"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <label class="hint">Açıklama / notlar</label>
+        <textarea id="teklifAciklama" rows="3" style="width:100%;"></textarea>
+      </div>
+      <div class="totals">
+        <div class="totals-box">
+          <div class="row"><span>Toplam</span><span id="teklifAraToplamGoster">0,00 ₺</span></div>
+          <div class="row"><span>KDV %</span><input type="number" id="teklifKdv" value="20" style="width:64px; padding:3px 6px; text-align:right;" /></div>
+          <div class="grand"><span>Genel toplam</span><span id="teklifGenelToplamGoster">0,00 ₺</span></div>
+        </div>
+      </div>
+      <div style="margin-top:18px; display:flex; gap:8px;">
+        <button onclick="teklifOnizle()">Önizle</button>
+        <button class="primary" id="teklifKaydetBtn" onclick="teklifKaydetVeYazdir()">Teklifi Kaydet ve Yazdır</button>
+      </div>
+
+      <div class="card" style="margin-top:24px;">
+        <h3>Geçmiş teklifler</h3>
+        <table>
+          <thead>
+            <tr><th>Teklif No</th><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th style="width:170px;"></th></tr>
+          </thead>
+          <tbody id="teklifListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="sayfa" id="sayfaFaturalarim">
       <h2>Faturalarım</h2>
       <p class="hint" style="text-transform:none; margin-bottom:10px;">
@@ -445,7 +539,7 @@
   <script>
     const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const TABLOLAR = ['firmalar', 'lokasyonlar', 'urunler', 'servis_formlari', 'form_kalemleri', 'manuel_faturalar', 'manuel_fatura_kalemleri'];
+    const TABLOLAR = ['firmalar', 'lokasyonlar', 'urunler', 'servis_formlari', 'form_kalemleri', 'manuel_faturalar', 'manuel_fatura_kalemleri', 'teklifler', 'teklif_kalemleri'];
     let duzenlenenFirmaId = null;
     let duzenlenenLokasyonId = null;
     let duzenlenenUrunId = null;
@@ -522,7 +616,7 @@
       try {
         // 1) Kuyruğu gönder (sıra önemli: firmalar önce, kalemler sonra — FK için)
         let kuyruk = kuyrukOku();
-        const sira = { firmalar: 1, lokasyonlar: 2, urunler: 3, servis_formlari: 4, form_kalemleri: 5, manuel_faturalar: 6, manuel_fatura_kalemleri: 7 };
+        const sira = { firmalar: 1, lokasyonlar: 2, urunler: 3, servis_formlari: 4, form_kalemleri: 5, manuel_faturalar: 6, manuel_fatura_kalemleri: 7, teklifler: 8, teklif_kalemleri: 9 };
         kuyruk.sort((a, b) => sira[a.tablo] - sira[b.tablo]);
 
         for (const islem of [...kuyruk]) {
@@ -611,16 +705,19 @@
       document.getElementById('sayfaServisFormu').classList.toggle('aktif', sekme === 'form');
       document.getElementById('sayfaGecmis').classList.toggle('aktif', sekme === 'gecmis');
       document.getElementById('sayfaFaturaKes').classList.toggle('aktif', sekme === 'faturaKes');
+      document.getElementById('sayfaTeklif').classList.toggle('aktif', sekme === 'teklif');
       document.getElementById('sayfaFaturalarim').classList.toggle('aktif', sekme === 'faturalarim');
       document.getElementById('sayfaAyarlar').classList.toggle('aktif', sekme === 'ayarlar');
       document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
       document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
       document.getElementById('sekmeGecmisBtn').classList.toggle('active', sekme === 'gecmis');
       document.getElementById('sekmeFaturaKesBtn').classList.toggle('active', sekme === 'faturaKes');
+      document.getElementById('sekmeTeklifBtn').classList.toggle('active', sekme === 'teklif');
       document.getElementById('sekmeFaturalarimBtn').classList.toggle('active', sekme === 'faturalarim');
       document.getElementById('sekmeAyarlarBtn').classList.toggle('active', sekme === 'ayarlar');
       if (sekme === 'gecmis') gecmisAra();
       if (sekme === 'faturaKes') manuelFaturaListesiYenile();
+      if (sekme === 'teklif') teklifleriYenile();
       if (sekme === 'faturalarim') faturalarimYenile();
       if (sekme === 'ayarlar') earsivAyarlariYukle();
     }
@@ -630,6 +727,8 @@
       urunListesiniYenile();
       if (document.getElementById('sayfaGecmis').classList.contains('aktif')) gecmisAra();
       if (document.getElementById('sayfaFaturaKes').classList.contains('aktif')) manuelFaturaListesiYenile();
+      if (document.getElementById('sayfaTeklif').classList.contains('aktif')) teklifleriYenile();
+      if (document.getElementById('sayfaFaturalarim').classList.contains('aktif')) faturalarimYenile();
     }
 
     // ============ FİRMALAR (yerelden okur) ============
@@ -662,7 +761,7 @@
           }).join('')
         : '<tr><td colspan="3" class="empty">Henüz firma eklenmedi</td></tr>';
 
-      [document.getElementById('firmaSecim'), document.getElementById('formFirmaSecim'), document.getElementById('faturaFirmaSecim')].forEach(secim => {
+      [document.getElementById('firmaSecim'), document.getElementById('formFirmaSecim'), document.getElementById('faturaFirmaSecim'), document.getElementById('teklifFirmaSecim')].forEach(secim => {
         const oncekiSecim = secim.value;
         secim.innerHTML = firmalar.map(f => `<option value="${f.id}">${f.unvan}</option>`).join('');
         if (oncekiSecim && firmalar.some(f => f.id === oncekiSecim)) secim.value = oncekiSecim;
@@ -1176,6 +1275,276 @@
       yerelOku('manuel_fatura_kalemleri').filter(k => k.fatura_id === id).forEach(k => kayitSil('manuel_fatura_kalemleri', k.id));
       kayitSil('manuel_faturalar', id);
       manuelFaturaListesiYenile();
+    }
+
+    // ============ TEKLİF FORMU (bağımsız, antetli kağıt üzerine, dövizli olabilir) ============
+    let teklifKalemleri = [];
+
+    document.getElementById('teklifParaBirimi').addEventListener('change', async () => {
+      const pb = document.getElementById('teklifParaBirimi').value;
+      const kurInput = document.getElementById('teklifKur');
+      if (pb === 'TRY') { kurInput.value = 1; teklifToplamlariHesapla(); return; }
+      kurInput.value = '';
+      kurInput.placeholder = 'Kur alınıyor...';
+      try {
+        const response = await fetch(`https://open.er-api.com/v6/latest/${pb}`);
+        const data = await response.json();
+        kurInput.value = data.rates.TRY.toFixed(4);
+      } catch (e) {
+        kurInput.placeholder = 'Kur alınamadı, elle gir';
+      }
+      teklifToplamlariHesapla();
+    });
+    document.getElementById('teklifKur').addEventListener('input', teklifToplamlariHesapla);
+    document.getElementById('teklifKdv').addEventListener('input', teklifToplamlariHesapla);
+
+    function teklifKalemEkle() {
+      teklifKalemleri.push({ urunId: '', aciklama: '', miktar: 1, cinsi: 'AD', birimFiyat: 0 });
+      teklifKalemTablosunuCiz();
+    }
+    function teklifKalemSil(index) {
+      teklifKalemleri.splice(index, 1);
+      teklifKalemTablosunuCiz();
+    }
+    function teklifUrunSecildi(index, urunId) {
+      const urun = aktifler('urunler').find(u => u.id === urunId);
+      // NOT: ürün kütüphanesindeki fiyat her zaman TL'dir (bkz. CLAUDE.md §10), teklif
+      // kalemi ise seçilen döviz cinsinden giriliyor — o yüzden fiyatı otomatik doldurmuyoruz,
+      // sadece açıklamayı dolduruyoruz, birim fiyatı elle girilir.
+      if (urun) {
+        teklifKalemleri[index].urunId = urun.id;
+        teklifKalemleri[index].aciklama = urun.ad;
+      } else {
+        teklifKalemleri[index].urunId = '';
+      }
+      teklifKalemTablosunuCiz();
+    }
+    function teklifKalemGuncelle(index, alan, deger) {
+      teklifKalemleri[index][alan] = (alan === 'miktar' || alan === 'birimFiyat') ? (parseFloat(deger) || 0) : deger;
+      if (alan === 'miktar' || alan === 'birimFiyat') {
+        const k = teklifKalemleri[index];
+        const satirToplam = document.getElementById(`teklifSatirToplam-${index}`);
+        if (satirToplam) satirToplam.textContent = (k.miktar * k.birimFiyat).toFixed(2);
+      }
+      teklifToplamlariHesapla();
+    }
+    function teklifKalemTablosunuCiz() {
+      const urunler = aktifler('urunler');
+      const tbody = document.getElementById('teklifKalemTablosu');
+      tbody.innerHTML = teklifKalemleri.map((k, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>
+            <select onchange="teklifUrunSecildi(${i}, this.value)" style="margin-bottom:4px;">
+              <option value="">— elle gir —</option>
+              ${urunler.map(u => `<option value="${u.id}" ${k.urunId == u.id ? 'selected' : ''}>${u.ad}</option>`).join('')}
+            </select>
+            <input type="text" value="${k.aciklama}" placeholder="Hizmet / ürün açıklaması" oninput="teklifKalemGuncelle(${i}, 'aciklama', this.value)" />
+          </td>
+          <td><input type="number" value="${k.miktar}" style="width:56px;" oninput="teklifKalemGuncelle(${i}, 'miktar', this.value)" /></td>
+          <td><input type="text" value="${k.cinsi}" style="width:56px;" oninput="teklifKalemGuncelle(${i}, 'cinsi', this.value)" /></td>
+          <td><input type="number" step="0.01" value="${k.birimFiyat}" style="width:84px;" oninput="teklifKalemGuncelle(${i}, 'birimFiyat', this.value)" /></td>
+          <td id="teklifSatirToplam-${i}">${(k.miktar * k.birimFiyat).toFixed(2)}</td>
+          <td><button class="ghost-danger" onclick="teklifKalemSil(${i})">Sil</button></td>
+        </tr>
+      `).join('');
+      teklifToplamlariHesapla();
+    }
+    function teklifToplamlariHesapla() {
+      const kur = parseFloat(document.getElementById('teklifKur').value) || 1;
+      const kdvOrani = parseFloat(document.getElementById('teklifKdv').value) || 0;
+      const araToplamDoviz = teklifKalemleri.reduce((s, k) => s + (k.miktar * k.birimFiyat), 0);
+      const araToplamTL = araToplamDoviz * kur;
+      const genelToplam = araToplamTL + (araToplamTL * kdvOrani / 100);
+      document.getElementById('teklifAraToplamGoster').textContent = araToplamTL.toFixed(2) + ' ₺';
+      document.getElementById('teklifGenelToplamGoster').textContent = genelToplam.toFixed(2) + ' ₺';
+    }
+
+    // Antetli kağıt görseli (assets/teklif-antet.png) TÜM SAYFANIN arka planı — görsel
+    // A4 ile aynı en-boy oranında (1654x2339px ≈ 210x297mm) çekildiği için background-size:
+    // 100% 100% hiç bozulma yapmadan tam sayfaya oturuyor. Tüm içerik (firma/tarih/kalemler/
+    // toplamlar/imza) bu arka planın ÜSTÜNE, logo alanını geçecek kadar üst boşluk
+    // bırakılarak yazılıyor — kırpma YOK, görselin tamamı (alttaki adres/website dahil) görünüyor.
+    function teklifOnizlemeHtml(data) {
+      const kalemler = data.kalemler;
+      const araToplamDoviz = kalemler.reduce((s, k) => s + (k.miktar * k.birimFiyat), 0);
+      const kur = data.kur || 1;
+      const araToplamTL = araToplamDoviz * kur;
+      const kdvTutari = araToplamTL * (data.kdvOrani || 0) / 100;
+      const genelToplam = araToplamTL + kdvTutari;
+      const sembol = data.paraBirimi === 'TRY' ? '₺' : data.paraBirimi;
+
+      return `
+        <div class="teklif-antet-sayfa" style="width:100%; min-height:277mm; box-sizing:border-box; background-image:url('assets/teklif-antet.png'); background-size:100% 100%; background-repeat:no-repeat; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:78mm 8mm 15mm;">
+          ${data.paraBirimi !== 'TRY' ? `
+          <div style="text-align:right; font-size:12px; color:var(--text-2); margin:0 0 14px;">
+            ${data.paraBirimi} kuru: <strong>${kur.toFixed(4)} ₺</strong>
+          </div>` : ''}
+          <div style="margin-bottom:8px;"><span class="hint">Tarih</span><p style="margin:0;">${data.tarih}</p></div>
+          <div class="card">
+            <span class="hint">Firma</span><p style="margin:0;">${data.firmaUnvan}</p>
+          </div>
+          <div style="border:1.5px dashed #9ca3af; border-radius:8px; min-height:90px; margin-bottom:16px; padding:10px; white-space:pre-wrap; box-sizing:border-box;">${data.onNot || ''}</div>
+          <div class="card">
+            <h3>Hizmet / Ürünler</h3>
+            <table>
+              <thead>
+                <tr><th style="width:6%;">Sıra</th><th>Açıklama</th><th style="width:10%;">Miktar</th><th style="width:10%;">Cinsi</th><th style="width:17%;">Birim fiyat</th><th style="width:17%;">Tutar</th></tr>
+              </thead>
+              <tbody>
+                ${kalemler.map((k, i) => `
+                  <tr>
+                    <td>${i + 1}</td>
+                    <td>${k.aciklama}</td>
+                    <td>${k.miktar}</td>
+                    <td>${k.cinsi || ''}</td>
+                    <td>${Number(k.birimFiyat).toFixed(2)} ${sembol}</td>
+                    <td>${(k.miktar * k.birimFiyat).toFixed(2)} ${sembol}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="totals">
+            <div class="totals-box">
+              <div class="row"><span>Toplam</span><span>${araToplamTL.toFixed(2)} ₺</span></div>
+              <div class="row"><span>KDV %${data.kdvOrani || 0}</span><span>${kdvTutari.toFixed(2)} ₺</span></div>
+              <div class="grand"><span>Genel toplam</span><span>${genelToplam.toFixed(2)} ₺</span></div>
+            </div>
+          </div>
+          ${data.aciklama ? `
+          <div class="card" style="margin-top:16px;">
+            <span class="hint">Açıklama</span>
+            <p style="margin:4px 0 0; white-space:pre-wrap;">${data.aciklama}</p>
+          </div>` : ''}
+          <div style="margin-top:40px; text-align:right;">
+            <p style="margin:0;">Saygılarımla</p>
+            <p style="margin:2px 0 0; font-weight:600;">Kıvanç Buğdaycı</p>
+            <p style="margin:2px 0 0; color:#6b7280; font-size:11px;">0538 342 59 02</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function teklifOnizle() {
+      const firmaId = document.getElementById('teklifFirmaSecim').value;
+      const tarih = document.getElementById('teklifTarih').value;
+      if (!firmaId || !tarih || !teklifKalemleri.length) {
+        alert('Önizleme için firma, tarih ve en az bir kalem gerekiyor.');
+        return;
+      }
+      const firma = aktifler('firmalar').find(f => f.id === firmaId);
+      onizlemeAc(teklifOnizlemeHtml({
+        firmaUnvan: firma ? firma.unvan : '', tarih,
+        paraBirimi: document.getElementById('teklifParaBirimi').value,
+        kur: parseFloat(document.getElementById('teklifKur').value) || 1,
+        kdvOrani: parseFloat(document.getElementById('teklifKdv').value) || 0,
+        aciklama: document.getElementById('teklifAciklama').value,
+        onNot: document.getElementById('teklifOnNot').value,
+        kalemler: teklifKalemleri,
+      }));
+    }
+
+    let teklifKaydediliyor = false;
+    function teklifKaydetVeYazdir() {
+      if (teklifKaydediliyor) return;
+      const firmaId = document.getElementById('teklifFirmaSecim').value;
+      const tarih = document.getElementById('teklifTarih').value;
+      const paraBirimi = document.getElementById('teklifParaBirimi').value;
+      const kur = parseFloat(document.getElementById('teklifKur').value) || 1;
+      const kdvOrani = parseFloat(document.getElementById('teklifKdv').value) || 0;
+      const aciklama = document.getElementById('teklifAciklama').value;
+      const onNot = document.getElementById('teklifOnNot').value;
+
+      if (!firmaId || !tarih) { alert('Firma ve tarih seçmen gerekiyor.'); return; }
+      if (!teklifKalemleri.length) { alert('En az bir kalem eklemen gerekiyor.'); return; }
+      teklifKaydediliyor = true;
+
+      const yil = new Date(tarih).getFullYear();
+      const mevcutSayi = yerelOku('teklifler').length;
+      const teklifNo = `T-${yil}-${String(mevcutSayi + 1).padStart(4, '0')}`;
+      const teklifId = crypto.randomUUID();
+
+      kayitUpsert('teklifler', {
+        id: teklifId, teklif_no: teklifNo, firma_id: firmaId, tarih,
+        para_birimi: paraBirimi, kur, kdv_orani: kdvOrani, aciklama, on_not: onNot, deleted: false,
+      });
+      teklifKalemleri.forEach(k => {
+        kayitUpsert('teklif_kalemleri', {
+          id: crypto.randomUUID(), teklif_id: teklifId, urun_id: k.urunId || null,
+          aciklama: k.aciklama, miktar: k.miktar, cinsi: k.cinsi, birim_fiyat: k.birimFiyat, deleted: false,
+        });
+      });
+
+      const firma = aktifler('firmalar').find(f => f.id === firmaId);
+      const html = teklifOnizlemeHtml({
+        teklifNo, firmaUnvan: firma ? firma.unvan : '', tarih, paraBirimi, kur, kdvOrani, aciklama, onNot,
+        kalemler: teklifKalemleri,
+      });
+      onizlemeAc(html);
+      setTimeout(() => window.print(), 300);
+
+      teklifKalemleri = [];
+      teklifKalemTablosunuCiz();
+      document.getElementById('teklifTarih').value = new Date().toISOString().split('T')[0];
+      document.getElementById('teklifAciklama').value = '';
+      document.getElementById('teklifOnNot').value = '';
+      document.getElementById('teklifParaBirimi').value = 'TRY';
+      document.getElementById('teklifKur').value = 1;
+      teklifleriYenile();
+      teklifKaydediliyor = false;
+    }
+
+    function teklifleriYenile() {
+      const firmalar = yerelOku('firmalar');
+      const kalemler = yerelOku('teklif_kalemleri');
+
+      const sonuclar = aktifler('teklifler').map(t => {
+        const teklifKalem = kalemler.filter(k => k.teklif_id === t.id && !k.deleted);
+        const araToplamDoviz = teklifKalem.reduce((s, k) => s + (k.miktar * k.birim_fiyat), 0);
+        const araToplamTL = araToplamDoviz * (t.kur || 1);
+        const genelToplam = araToplamTL + (araToplamTL * (t.kdv_orani || 0) / 100);
+        return {
+          ...t,
+          firma_unvan: firmalar.find(x => x.id === t.firma_id)?.unvan || '-',
+          genelToplam,
+        };
+      }).sort((a, b) => (b.tarih || '').localeCompare(a.tarih || ''));
+
+      const tbody = document.getElementById('teklifListesi');
+      tbody.innerHTML = sonuclar.length
+        ? sonuclar.map(t => `
+          <tr>
+            <td>${t.teklif_no}</td>
+            <td>${t.tarih}</td>
+            <td>${t.firma_unvan}</td>
+            <td>${t.genelToplam.toFixed(2)} ₺</td>
+            <td>
+              <button onclick="teklifGoruntule('${t.id}')">Görüntüle</button>
+              <button class="ghost-danger" onclick="teklifSilOnayla('${t.id}')">Sil</button>
+            </td>
+          </tr>`).join('')
+        : '<tr><td colspan="5" class="empty">Henüz teklif oluşturulmadı</td></tr>';
+    }
+
+    function teklifGoruntule(id) {
+      const t = yerelOku('teklifler').find(x => x.id === id);
+      if (!t) return;
+      const firmalar = yerelOku('firmalar');
+      const kalemler = yerelOku('teklif_kalemleri').filter(k => k.teklif_id === id && !k.deleted)
+        .map(k => ({ aciklama: k.aciklama, miktar: k.miktar, cinsi: k.cinsi, birimFiyat: k.birim_fiyat }));
+      onizlemeAc(teklifOnizlemeHtml({
+        teklifNo: t.teklif_no,
+        firmaUnvan: firmalar.find(x => x.id === t.firma_id)?.unvan || '-',
+        tarih: t.tarih, paraBirimi: t.para_birimi, kur: t.kur, kdvOrani: t.kdv_orani,
+        aciklama: t.aciklama, onNot: t.on_not, kalemler,
+      }));
+    }
+
+    function teklifSilOnayla(id) {
+      if (!confirm('Bu teklifi kalıcı olarak silmek istediğine emin misin?')) return;
+      yerelOku('teklif_kalemleri').filter(k => k.teklif_id === id).forEach(k => kayitSil('teklif_kalemleri', k.id));
+      kayitSil('teklifler', id);
+      teklifleriYenile();
     }
 
     // ============ FATURALARIM (servis formu + manuel, tek liste) ============
@@ -1710,6 +2079,7 @@
     // ============ BAŞLANGIÇ ============
     document.getElementById('formTarih').value = new Date().toISOString().split('T')[0];
     document.getElementById('faturaTarih').value = new Date().toISOString().split('T')[0];
+    document.getElementById('teklifTarih').value = new Date().toISOString().split('T')[0];
     oturumKontrol();
   </script>
 </body>

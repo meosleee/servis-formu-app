@@ -58,13 +58,15 @@ sorunu değil.)
 
 ```
 servis-formu-app/
-├── main.js              # Electron ana süreç (pencere açar + otomatik güncelleme kontrolü)
-├── preload.js           # Şu an boş — IPC köprüsüne ihtiyaç kalmadı
-├── supabase.js          # SUPABASE_URL ve SUPABASE_KEY sabitleri
-├── index.html           # TÜM uygulama: arayüz + iş mantığı + senkron
-├── vendor/supabase.js   # supabase-js kütüphanesi (yerel kopya, CDN kullanılmıyor)
-├── assets/logo.png      # Petsis logosu (arka planı şeffaf hale getirildi)
-├── package.json         # electron-builder yapılandırması + publish (GitHub Releases) burada
+├── main.js                  # Electron ana süreç (pencere + oto güncelleme + e-Arşiv IPC)
+├── preload.js               # window.earsiv.* köprüsü (contextBridge)
+├── supabase.js              # SUPABASE_URL ve SUPABASE_KEY sabitleri
+├── index.html                # TÜM uygulama: arayüz + iş mantığı + senkron
+├── earsiv/                   # e-Arşiv (GİB) otomasyonu — bkz. bölüm 11
+├── vendor/supabase.js         # supabase-js kütüphanesi (yerel kopya, CDN kullanılmıyor)
+├── assets/logo.png            # Petsis logosu (yatay, arka planı şeffaf — servis formu antetinde)
+├── assets/teklif-antet.png    # Teklif formu antetli kağıdı (dikey logo + watermark) — bkz. bölüm 13
+├── package.json               # electron-builder yapılandırması + publish (GitHub Releases) burada
 └── .github/workflows/build-win.yml   # Windows derleme + tag push'ta release yayınlama
 ```
 
@@ -149,6 +151,17 @@ hızlı çift tıklamaya karşı da korunuyor.
 `#onizlemeOverlay` içinde renkler beyaza override ediliyor, `@media print` bloğu da
 her şeyi siyah-beyaza zorluyor.
 
+**Yazdırınca arka plandaki sekme de basılıyordu (2026-08-06, Teklif Formu ile fark
+edildi):** `#onizlemeOverlay` ekranda `position:fixed; inset:0` ile her şeyin ÜSTÜNÜ
+kaplıyor, ama print sırasında birçok tarayıcı motoru `position:fixed`'i normal akışa
+çeviriyor — bu yüzden altındaki `.content` (o an açık olan sekme, örn. Teklif Formu'nun
+kendi form ekranı) hiç gizlenmediği için overlay içeriğiyle ÜST ÜSTE değil ARKA ARKAYA
+aynı çıktıya basılıyordu. Servis formu kısa olduğu için muhtemelen fark edilmemişti,
+Teklif Formu'nun altındaki "Geçmiş teklifler" listesi bunu görünür kıldı. Düzeltme:
+`@media print` içine `.content { display: none !important; }` eklendi — yazdırma HER
+ZAMAN `onizlemeAc()` + overlay üzerinden yapılıyor (`window.print()`'in üç çağrı yeri de
+buna bağlı), o yüzden `.content`'i print'te tamamen gizlemek güvenli.
+
 ---
 
 ## 8. Derleme ve dağıtım
@@ -226,6 +239,10 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
       oluşmasın diye. Detaylar için bkz. bölüm 12.
 - [ ] Aylık ciro / form sayısı özeti
 - [ ] Uygulama ikonu (şu an varsayılan Electron ikonu kullanılıyor)
+- [x] **Teklif Formu** (2026-08-06). Servis formundan/faturadan bağımsız, dövizli fiyat
+      teklifi hazırlama — Batuhan'ın gönderdiği gerçek antetli kağıda göre tasarlandı.
+      Detaylar için bkz. bölüm 13. **Supabase'de yeni tablolar gerekiyor, Batuhan'ın
+      dashboard'da çalıştırması lazım** (bölüm 13'teki SQL).
 - [x] **e-Arşiv fatura görüntüleme (indirmeden)** (2026-08-04). "İndir" her seferinde
       PDF üretip diske yazıyordu — sadece bakmak isteyenler için "Görüntüle" (aslında
       "Faturayı Görüntüle") butonu eklendi, GİB'in HTML içeriğini dosyaya hiç
@@ -620,9 +637,153 @@ yazdır" butonu ("Güncelle ve yazdır") buna göre değişiyor, "Vazgeç, yeni 
 butonu görünür olur. `formKaydetVeYazdir()` düzenleme modundaysa YENİ id/form_no
 üretmek yerine mevcudu kullanıyor, eski `form_kalemleri` satırlarını yumuşak silip
 güncel `formKalemleri`'ni yeniden yazıyor, kayıttan sonra `formDuzenlemeIptal()` ile
-formu sıfırlıyor. **Normal (düzenleme dışı) "Kaydet ve yazdır" davranışı değişmedi** —
-o hâlâ form alanlarını temizlemiyor (mevcut davranış korundu, sadece düzenleme modu
-kendini sıfırlıyor).
+formu sıfırlıyor. (Not: bu bölümde ilk yazıldığında "normal kayıtta form temizlenmiyor,
+mevcut davranış korunuyor" deniyordu — sonra bir çift-kayıt hatası bulununca bu
+DEĞİŞTİRİLDİ, bkz. bölüm 7'deki "Aynı servis formu iki kayıt olarak görünüyordu" notu:
+artık HER başarılı kayıttan sonra form temizleniyor.)
 
 **İmza checkbox'ı** artık kendi kartında ("Yazdırma seçeneği" başlıklı), buton
 satırından ayrı, `accent-color` ile vurgulu — dağınık tek satırlık haliyle değil.
+
+---
+
+## 13. Teklif Formu (2026-08-06)
+
+Batuhan gerçek bir antetli kağıt (`assets/teklif-antet.png` — orijinali
+`~/Desktop/petsis-antetli-1.png`, 1654×2339px, A4 ~200dpi) ve gerçek bir örnek teklif
+(Bornova/Arkpet PDF) gönderdi. Örnekte kalemler **USD** cinsindendi, sağ üstte o günün
+dolar kuru gösteriliyordu, toplamlar TL'ye çevrilmişti. Üç mimari karar
+AskUserQuestion ile soruldu, üçünde de önerilen seçenek onaylandı: (1) teklif başına
+**tek para birimi** seçilip kur otomatik çekilsin, (2) firma **mevcut Firmalar
+listesinden** seçilsin (serbest metin değil), (3) teklifler **kaydedilsin, geçmişi
+olsun** (tek seferlik doldur-yazdır değil).
+
+**Servis formundan/faturadan TAMAMEN bağımsız** yeni bir sekme: "Teklif Formu".
+Kendi kalem state'i (`teklifKalemleri`), kendi kalem tablosu pattern'i (`teklifKalemEkle`/
+`Sil`/`UrunSecildi`/`Guncelle`/`TablosunuCiz` — diğer üç kalem tablosuyla — servis formu,
+Fatura Kes — birebir aynı desen, sadece `miktar`/`cinsi`/`birimFiyat` alan adları farklı).
+
+**Döviz mekaniği:** para birimi (`teklifParaBirimi`: TRY/USD/EUR) değişince
+`open.er-api.com`'dan (ürün ekleme ekranındaki `tlKarsiligi()` ile AYNI API, ama kur
+DEĞERİNİN kendisi lazım olduğu için ayrı, basit bir fetch) güncel kur otomatik çekilip
+`teklifKur` input'una yazılıyor — kullanıcı isterse elle değiştirebilir (internet yoksa
+elle girer). Kalemler seçilen döviz cinsinden giriliyor (TL'ye çevrilmiyor — ürün
+kütüphanesindeki fiyatların hep TL olmasından FARKLI bir davranış, bilerek). Sadece
+TOPLAMLAR (Toplam/KDV/Genel toplam) kur ile TL'ye çevriliyor, tıpkı örnekteki gibi.
+
+**Antetli kağıt:** `teklifOnizlemeHtml()` içeriği, `#onizlemeOverlay`'in (servis
+formuyla PAYLAŞILAN, beyaz kağıt) üstüne, `background-image: url('assets/teklif-antet.png')`
+ile açılıyor — ayrı bir overlay YOK, aynı `onizlemeAc()`/`onizlemeKapat()` kullanılıyor,
+buton bar'ları da servis formununkiyle aynı (`#onizlemeButonlarServis`: "← Düzenlemeye
+dön" + "Yazdır" — teklif için de bu ikisi zaten yeterli, GİB'e özgü "Onayla" adımı yok).
+**İlk versiyon** sadece görselin üst (logo) kısmını kırpıp gösteriyordu — Batuhan
+"her şeyi antetli kağıdın üstüne yapacaksın" diyerek bunun yanlış olduğunu belirtti.
+**Düzeltilmiş tasarım:** görsel artık TÜM SAYFANIN arka planı, hiç kırpılmıyor. Görsel
+A4 ile birebir aynı en-boy oranında (1654×2339px ≈ 210×297mm) çekildiği için
+`background-size:100% 100%` üzerinde bozulma olmadan tam oturuyor. İçerik (firma/tarih/
+kalemler/toplamlar/imza), `min-height:277mm` + `padding:78mm 8mm 15mm` olan TEK bir
+container İÇİNE konuyor — üst boşluk (78mm) logo alanını geçiyor, alttaki adres/website
+zaten görselin kendi içinde olduğu için ayrıca yazılmıyor. `mm` birimi bilerek seçildi
+(px/% yerine) — tarayıcı print motoru `mm`'i gerçek fiziksel sayfa ölçüsü olarak
+yorumluyor, bu yüzden px/% tabanlı tahminlerden daha güvenilir.
+
+**Ayrıca bulunan ve düzeltilen ayrı bir bug (2026-08-06):** İlk test çıktısında antet
+kısmının kesildiğini bildirirken Batuhan'ın attığı PDF'te asıl sorun antet DEĞİL,
+yazdırırken arkadaki "Teklif Formu" sekmesinin de aynı çıktıya art arda basılmasıydı —
+bkz. bölüm 7'deki "Yazdırınca arka plandaki sekme de basılıyordu" notu (`.content`
+print'te gizlenmiyordu, `position:fixed` print'te normal akışa dönüyor).
+
+**Bilinmeyen/doğrulanmamış:** `padding-top:78mm` (logo alanı için ayrılan üst boşluk)
+kabaca bir tahmin, kesin ölçülmedi. Batuhan gerçek çıktıda logo/tagline'ın hâlâ
+kesildiğini ya da çok fazla boş alan olduğunu görürse bu değeri ayarlamak gerekir.
+Ayrıca içerik bir A4 sayfasından UZUN olursa (çok kalem eklenirse) arka plan görseli
+sadece ilk sayfada tam görünür, taşan kısım ikinci sayfada düz beyaz kalır — bu bilinen
+bir sınırlama, v1 için kabul edildi (örnek teklif zaten tek sayfaya rahatça sığıyordu).
+
+**İki ek düzeltme (2026-08-06, aynı gün, ikinci tur):**
+1. Batuhan "yazıların arkasındaki kutucuklar antetli kağıdı bozmasın" dedi — `.card`/
+   `.totals-box`/`th` normalde opak beyaz/gri arka planlı, antet görselinin üstünü
+   kapatıyordu. `#onizlemeOverlay .teklif-antet-sayfa .card/.totals-box/table th` için
+   `background: transparent !important` eklendi — ID+class kombinasyonu sayesinde
+   (specificity) hem ekran hem print'teki genel `.card`/`.totals-box`/`th` kurallarını
+   eziyor, servis formu/fatura önizlemesini ETKİLEMİYOR (onlar bu class'a sahip değil).
+2. `@page { margin: 14mm; }` (önceden var, genel ayar) yüzünden antet görseli tam sayfayı
+   değil, kenar boşluklu alanı kaplıyordu (en-boy oranı da bozuluyordu, 210×297mm yerine
+   182×269mm'e sıkıştığı için). Print'e özel bir kural eklendi: `.teklif-antet-sayfa`
+   `margin:-14mm` ile sayfa kenarına kadar taşırılıp (`width:calc(100% + 28mm)`,
+   `min-height:297mm` — artık GERÇEKTEN tam A4), içerik aynı miktar ekstra padding
+   (`92mm 22mm 20mm`, önceki değerlere +14mm) ile geri içeri çekiliyor — "full-bleed
+   arka plan" tekniği. Bu SADECE `@media print` içinde, sadece `.teklif-antet-sayfa`
+   class'ına uygulanıyor, başka hiçbir şeyi etkilemiyor.
+
+**Hâlâ canlı yazıcı çıktısıyla doğrulanmadı** — bir sonraki denemede antetin tam
+sayfayı kapladığından, kutucukların saydam olduğundan ve logo/tagline'ın kesilmediğinden
+emin olunmalı.
+
+**Çıktı düzeni değişikliği (2026-08-06, üçüncü tur):** Batuhan şunu istedi: Teklif No
+kağıtta HİÇ görünmesin (kayıtta/geçmiş listesinde hâlâ var, sadece yazdırılmıyor);
+Tarih artık Firma bilgisinin ÜSTÜNDE (önceden ikisi + Teklif No aynı satırda yan
+yanaydı); Firma ile Ürünler tablosu arasına, hiçbir etiket/metin yazmayan TAMAMEN BOŞ
+bir kutu eklendi (`border` ile çerçeveli, `min-height:70px`, sonradan elle yazı
+yazılacak alan — mevcut "Açıklama / notlar" alanından FARKLI, o hâlâ toplamlardan
+sonra kendi yerinde duruyor ve dijital olarak yazılan metni basıyor).
+
+**Veri modeli — YENİ TABLOLAR, Batuhan'ın Supabase dashboard SQL Editor'de
+ÇALIŞTIRMASI GEREKİYOR (henüz çalıştırılmadı):**
+```sql
+create table teklifler (
+  id uuid primary key,
+  user_id uuid default auth.uid(),
+  firma_id uuid references firmalar(id),
+  tarih date,
+  para_birimi text,
+  kur numeric,
+  kdv_orani numeric,
+  aciklama text,
+  on_not text,
+  teklif_no text,
+  deleted boolean default false,
+  updated_at timestamptz default now()
+);
+
+create table teklif_kalemleri (
+  id uuid primary key,
+  user_id uuid default auth.uid(),
+  teklif_id uuid references teklifler(id),
+  urun_id uuid references urunler(id),
+  aciklama text,
+  miktar numeric,
+  cinsi text,
+  birim_fiyat numeric,
+  deleted boolean default false,
+  updated_at timestamptz default now()
+);
+
+alter table teklifler enable row level security;
+alter table teklif_kalemleri enable row level security;
+
+create policy "kullanici kendi verisi" on teklifler
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "kullanici kendi verisi" on teklif_kalemleri
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+Bu çalıştırılmadan "Teklif Formu" sekmesinde kaydedilen teklifler yerelde görünür ama
+Supabase'e senkronize olmaz (diğer tablolarla aynı şema-serbest `kayitUpsert` davranışı
+— bkz. bölüm 6).
+
+**`on_not` sütunu sonradan eklendi (2026-08-06, aynı gün, üçüncü tur):** Firma ile
+Ürünler arasındaki kutu için — bu ayrı bir alan, kağıtta BAŞLIKSIZ basılıyor (mevcut
+`aciklama` alanından farklı, o "Açıklama" başlığıyla toplamlardan SONRA basılıyor).
+**Eğer Batuhan yukarıdaki SQL'i `on_not` eklenmeden ÖNCE zaten çalıştırdıysa**, ayrıca
+şunu da çalıştırması gerekir:
+```sql
+alter table teklifler add column if not exists on_not text;
+```
+
+Teklif numarası formatı `T-2026-0001` (servis formunun `F-2026-0001` deseniyle aynı,
+yereldeki teklif sayısından üretiliyor — bkz. bölüm 10'daki çok-kullanıcı uyarısı
+burada da geçerli).
+
+**Kapsam dışı (v1):** teklif düzenleme (servis formu gibi sonradan düzenlenemiyor,
+sadece görüntülenip silinebiliyor), teklifi faturaya/servis formuna dönüştürme,
+teklif geçerlilik süresi alanı, e-posta ile gönderim.
