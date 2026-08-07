@@ -237,7 +237,8 @@ Uygulama imzasız olduğu için Windows SmartScreen uyarısı verir
       (`earsiv_durum !== 'imzalandi'`). Fatura zaten kesilmiş bir formda "Düzenle"
       butonu disabled, GİB'e giden resmi veriyle yerel kayıt arasında uyuşmazlık
       oluşmasın diye. Detaylar için bkz. bölüm 12.
-- [ ] Aylık ciro / form sayısı özeti
+- [x] **Aylık ciro özeti + ödeme takibi** (2026-08-07). Detaylar için bkz. bölüm 14.
+      **Supabase'de yeni sütunlar gerekiyor, Batuhan'ın dashboard'da çalıştırması lazım.**
 - [ ] Uygulama ikonu (şu an varsayılan Electron ikonu kullanılıyor)
 - [x] **Teklif Formu** (2026-08-06). Servis formundan/faturadan bağımsız, dövizli fiyat
       teklifi hazırlama — Batuhan'ın gönderdiği gerçek antetli kağıda göre tasarlandı.
@@ -787,3 +788,45 @@ burada da geçerli).
 **Kapsam dışı (v1):** teklif düzenleme (servis formu gibi sonradan düzenlenemiyor,
 sadece görüntülenip silinebiliyor), teklifi faturaya/servis formuna dönüştürme,
 teklif geçerlilik süresi alanı, e-posta ile gönderim.
+
+---
+
+## 14. Ödeme takibi + Aylık Özet (2026-08-07)
+
+Batuhan "kesilen faturaların KDV hariç ve dahil totalini, ödeme alındı mı alınmadı mı
+seçeneğiyle aylık listeleyelim" dedi. Kapsam netleştirmek için soruldu — cevap:
+**"kesilen fatura ve kesilmemiş fatura olarak ayıralım"** — yani hem e-Arşiv'e
+gönderilmiş (`earsiv_durum='imzalandi'`) hem gönderilmemiş servis formu/manuel fatura
+kayıtları dahil, ama ikisi AYRI satırlarda gösteriliyor.
+
+**Ödeme takibi:** `servis_formlari` ve `manuel_faturalar`'a `odeme_durumu` sütunu
+(`'odendi'` / her şey else `'odenmedi'` sayılır). `odemeDurumuBtn(tablo, id, durum)` —
+Geçmiş, Fatura Kes ve Faturalarım listelerinde tıklanabilir bir 🟢/🔴 rozet, tıklanınca
+`odemeDurumuDegistir()` durumu tersine çevirip ilgili listeyi/Aylık Özet'i yeniliyor.
+e-Arşiv durumundan tamamen bağımsız — kesilmemiş bir işin parası da alınmış olabilir.
+
+**Aylık Özet sekmesi:** `aylikOzetYenile()` — `servis_formlari` + `manuel_faturalar`
+(teklifler DAHİL DEĞİL, onlarda tahsilat yok) `tarih`in `YYYY-MM` kısmına göre
+gruplanıyor, en yeni ay üstte. Her ay için İKİ satır: "Kesilmiş faturalar" ve
+"Kesilmemiş faturalar" — adet, KDV Hariç toplam, KDV Dahil toplam, Ödenen tutar
+(KDV dahil, `odeme_durumu='odendi'` olanların toplamı), Ödenmeyen tutar (KDV dahil
+toplam − ödenen).
+
+**Veri modeli — Batuhan'ın Supabase dashboard SQL Editor'de ÇALIŞTIRMASI GEREKİYOR:**
+```sql
+alter table servis_formlari add column if not exists odeme_durumu text;
+alter table manuel_faturalar add column if not exists odeme_durumu text;
+```
+Bu çalıştırılmadan ödeme butonu tıklansa bile Supabase'e senkronize olmaz (yerelde
+çalışır, diğer şema-serbest `kayitUpsert` davranışıyla aynı — bkz. bölüm 6).
+
+**Not (SQL Editor'de kopyala-yapıştır sorunu, 2026-08-06'da yaşandı):** Batuhan'ın
+ortamında bazı kopyalama yolları düz `,`/`"` karakterlerini "akıllı" tipografik
+karakterlere çeviriyor, Postgres bunu tanımayıp `syntax error at or near ...` veriyor.
+Çözüm: SQL'i önce TextEdit'te "Format → Make Plain Text" (Cmd+Shift+T) yapılmış boş bir
+pencereye yapıştırıp oradan tekrar kopyalamak. İleride SQL verirken bu ihtimali akılda
+tutmalı, ilk denemede hata gelirse bunu önermeli.
+
+**Kapsam dışı (v1):** haftalık/yıllık özet, para birimi kırılımı (dövizli teklif gibi
+manuel faturalarda da döviz cinsi olabilir ama Aylık Özet her zaman kayıtlı TL tutarını
+kullanıyor), ödeme tarihi/kısmi ödeme takibi (sadece ikili odendi/odenmedi var).

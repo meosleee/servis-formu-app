@@ -172,6 +172,7 @@
     <button id="sekmeFaturaKesBtn" onclick="sekmeGoster('faturaKes')">Fatura Kes</button>
     <button id="sekmeTeklifBtn" onclick="sekmeGoster('teklif')">Teklif Formu</button>
     <button id="sekmeFaturalarimBtn" onclick="sekmeGoster('faturalarim')">Faturalarım</button>
+    <button id="sekmeAylikOzetBtn" onclick="sekmeGoster('aylikOzet')">Aylık Özet</button>
     <button id="sekmeAyarlarBtn" onclick="sekmeGoster('ayarlar')">Ayarlar</button>
     <div class="spacer"></div>
     <span id="senkronDurum">🔴 Çevrimdışı</span>
@@ -313,7 +314,7 @@
       <div class="card">
         <table>
           <thead>
-            <tr><th>Form no</th><th>Firma</th><th>Adres</th><th>Tarih</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:170px;"></th></tr>
+            <tr><th>Form no</th><th>Firma</th><th>Adres</th><th>Tarih</th><th>Genel toplam</th><th>e-Arşiv</th><th>Ödeme</th><th style="width:170px;"></th></tr>
           </thead>
           <tbody id="gecmisListesi"></tbody>
         </table>
@@ -366,7 +367,7 @@
         <h3>Manuel kesilen faturalar</h3>
         <table>
           <thead>
-            <tr><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:170px;"></th></tr>
+            <tr><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th>Ödeme</th><th style="width:170px;"></th></tr>
           </thead>
           <tbody id="manuelFaturaListesi"></tbody>
         </table>
@@ -459,9 +460,25 @@
       <div class="card">
         <table>
           <thead>
-            <tr><th>Kaynak</th><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th style="width:220px;"></th></tr>
+            <tr><th>Kaynak</th><th>Tarih</th><th>Firma</th><th>Genel toplam</th><th>e-Arşiv</th><th>Ödeme</th><th style="width:220px;"></th></tr>
           </thead>
           <tbody id="faturalarimListesi"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sayfa" id="sayfaAylikOzet">
+      <h2>Aylık Özet</h2>
+      <p class="hint" style="text-transform:none; margin-bottom:10px;">
+        Tüm servis formları + manuel faturalar, aya göre gruplanmış — e-Arşiv faturası
+        kesilmiş olsun olmasın. Her ay için kesilmiş/kesilmemiş ayrı satırda.
+      </p>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>Durum</th><th style="width:60px;">Adet</th><th>KDV Hariç</th><th>KDV Dahil</th><th>Ödenen</th><th>Ödenmeyen</th></tr>
+          </thead>
+          <tbody id="aylikOzetListesi"></tbody>
         </table>
       </div>
     </div>
@@ -707,6 +724,7 @@
       document.getElementById('sayfaFaturaKes').classList.toggle('aktif', sekme === 'faturaKes');
       document.getElementById('sayfaTeklif').classList.toggle('aktif', sekme === 'teklif');
       document.getElementById('sayfaFaturalarim').classList.toggle('aktif', sekme === 'faturalarim');
+      document.getElementById('sayfaAylikOzet').classList.toggle('aktif', sekme === 'aylikOzet');
       document.getElementById('sayfaAyarlar').classList.toggle('aktif', sekme === 'ayarlar');
       document.getElementById('sekmeFirmalarBtn').classList.toggle('active', sekme === 'firmalar');
       document.getElementById('sekmeFormBtn').classList.toggle('active', sekme === 'form');
@@ -714,11 +732,13 @@
       document.getElementById('sekmeFaturaKesBtn').classList.toggle('active', sekme === 'faturaKes');
       document.getElementById('sekmeTeklifBtn').classList.toggle('active', sekme === 'teklif');
       document.getElementById('sekmeFaturalarimBtn').classList.toggle('active', sekme === 'faturalarim');
+      document.getElementById('sekmeAylikOzetBtn').classList.toggle('active', sekme === 'aylikOzet');
       document.getElementById('sekmeAyarlarBtn').classList.toggle('active', sekme === 'ayarlar');
       if (sekme === 'gecmis') gecmisAra();
       if (sekme === 'faturaKes') manuelFaturaListesiYenile();
       if (sekme === 'teklif') teklifleriYenile();
       if (sekme === 'faturalarim') faturalarimYenile();
+      if (sekme === 'aylikOzet') aylikOzetYenile();
       if (sekme === 'ayarlar') earsivAyarlariYukle();
     }
 
@@ -729,6 +749,7 @@
       if (document.getElementById('sayfaFaturaKes').classList.contains('aktif')) manuelFaturaListesiYenile();
       if (document.getElementById('sayfaTeklif').classList.contains('aktif')) teklifleriYenile();
       if (document.getElementById('sayfaFaturalarim').classList.contains('aktif')) faturalarimYenile();
+      if (document.getElementById('sayfaAylikOzet').classList.contains('aktif')) aylikOzetYenile();
     }
 
     // ============ FİRMALAR (yerelden okur) ============
@@ -1262,12 +1283,13 @@
             <td>${f.firma_unvan}</td>
             <td>${f.genelToplam.toFixed(2)} ₺</td>
             <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
+            <td>${odemeDurumuBtn('manuel_faturalar', f.id, f.odeme_durumu)}</td>
             <td>
               ${earsivButonuUret(f, 'manuel_faturalar')}
               <button class="ghost-danger" onclick="manuelFaturaSilOnayla('${f.id}')">Sil</button>
             </td>
           </tr>`).join('')
-        : '<tr><td colspan="5" class="empty">Henüz manuel fatura kesilmedi</td></tr>';
+        : '<tr><td colspan="6" class="empty">Henüz manuel fatura kesilmedi</td></tr>';
     }
 
     function manuelFaturaSilOnayla(id) {
@@ -1597,9 +1619,72 @@
             <td>${f.firma_unvan}</td>
             <td>${f.genelToplam.toFixed(2)} ₺</td>
             <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
+            <td>${odemeDurumuBtn(f.tablo, f.id, f.odeme_durumu)}</td>
             <td>${earsivButonuUret(f, f.tablo)}</td>
           </tr>`).join('')
-        : '<tr><td colspan="6" class="empty">Henüz kesilmiş/başlatılmış fatura yok</td></tr>';
+        : '<tr><td colspan="7" class="empty">Henüz kesilmiş/başlatılmış fatura yok</td></tr>';
+    }
+
+    // ============ AYLIK ÖZET ============
+    // servis_formlari + manuel_faturalar, ay bazında ve kesilmiş/kesilmemiş (e-Arşiv
+    // earsiv_durum='imzalandi') ayrımıyla — Batuhan'ın "kesilen fatura ve kesilmemiş
+    // fatura olarak ayıralım" isteğine göre. Teklifler dahil değil (para tahsilatı yok).
+    const AY_ADLARI = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+    function aylikOzetYenile() {
+      const servisKalemler = yerelOku('form_kalemleri');
+      const manuelKalemler = yerelOku('manuel_fatura_kalemleri');
+
+      function kayitVerisi(f, tablo) {
+        const kalemler = tablo === 'servis_formlari'
+          ? servisKalemler.filter(k => k.form_id === f.id && !k.deleted)
+          : manuelKalemler.filter(k => k.fatura_id === f.id && !k.deleted);
+        const kdvHaric = kalemler.reduce((s, k) => s + (k.adet * k.birim_fiyat), 0);
+        const kdvDahil = kdvHaric + (kdvHaric * (f.kdv_orani || 0) / 100);
+        return {
+          ay: (f.tarih || '').slice(0, 7),
+          kesilmisMi: f.earsiv_durum === 'imzalandi',
+          odendiMi: f.odeme_durumu === 'odendi',
+          kdvHaric, kdvDahil,
+        };
+      }
+
+      const tumKayitlar = [
+        ...aktifler('servis_formlari').map(f => kayitVerisi(f, 'servis_formlari')),
+        ...aktifler('manuel_faturalar').map(f => kayitVerisi(f, 'manuel_faturalar')),
+      ].filter(k => k.ay);
+
+      const aylar = [...new Set(tumKayitlar.map(k => k.ay))].sort().reverse();
+
+      const satirUret = (liste, etiket) => {
+        const kdvHaric = liste.reduce((s, k) => s + k.kdvHaric, 0);
+        const kdvDahil = liste.reduce((s, k) => s + k.kdvDahil, 0);
+        const odenen = liste.filter(k => k.odendiMi).reduce((s, k) => s + k.kdvDahil, 0);
+        const odenmeyen = kdvDahil - odenen;
+        return `
+          <tr>
+            <td>${etiket}</td>
+            <td>${liste.length}</td>
+            <td>${kdvHaric.toFixed(2)} ₺</td>
+            <td>${kdvDahil.toFixed(2)} ₺</td>
+            <td>${odenen.toFixed(2)} ₺</td>
+            <td>${odenmeyen.toFixed(2)} ₺</td>
+          </tr>`;
+      };
+
+      const tbody = document.getElementById('aylikOzetListesi');
+      tbody.innerHTML = aylar.length ? aylar.map(ay => {
+        const ayKayitlari = tumKayitlar.filter(k => k.ay === ay);
+        const kesilmis = ayKayitlari.filter(k => k.kesilmisMi);
+        const kesilmemis = ayKayitlari.filter(k => !k.kesilmisMi);
+        const [yil, ayNo] = ay.split('-');
+        const ayBasligi = `${AY_ADLARI[parseInt(ayNo, 10) - 1]} ${yil}`;
+        return `
+          <tr style="background:rgba(255,255,255,.03);"><td colspan="6" style="font-weight:600; color:var(--accent);">${ayBasligi}</td></tr>
+          ${satirUret(kesilmis, 'Kesilmiş faturalar')}
+          ${satirUret(kesilmemis, 'Kesilmemiş faturalar')}
+        `;
+      }).join('') : '<tr><td colspan="6" class="empty">Henüz kayıt yok</td></tr>';
     }
 
     // ============ ÖNİZLEME ============
@@ -1803,6 +1888,7 @@
             <td>${f.tarih}</td>
             <td>${f.genelToplam.toFixed(2)} ₺</td>
             <td>${earsivDurumEtiketi(f.earsiv_durum)}</td>
+            <td>${odemeDurumuBtn('servis_formlari', f.id, f.odeme_durumu)}</td>
             <td>
               <button onclick="formGoruntule('${f.id}')">Görüntüle</button>
               ${f.earsiv_durum === 'imzalandi'
@@ -1812,7 +1898,7 @@
               ${earsivButonuUret(f, 'servis_formlari')}
             </td>
           </tr>`).join('')
-        : '<tr><td colspan="7" class="empty">Sonuç bulunamadı</td></tr>';
+        : '<tr><td colspan="8" class="empty">Sonuç bulunamadı</td></tr>';
     }
 
     // ============ E-ARŞİV ============
@@ -1828,6 +1914,24 @@
     function earsivListeyiYenile(tablo) {
       if (tablo === 'servis_formlari') gecmisAra();
       else manuelFaturaListesiYenile();
+    }
+
+    // Ödeme takibi (2026-08-07) — servis_formlari ve manuel_faturalar üzerinde,
+    // e-Arşiv durumundan tamamen bağımsız (kesilmemiş bir işin parası da alınmış olabilir).
+    function odemeDurumuEtiketi(durum) {
+      return durum === 'odendi' ? '🟢 Ödendi' : '🔴 Ödenmedi';
+    }
+    function odemeDurumuBtn(tablo, id, durum) {
+      return `<button onclick="odemeDurumuDegistir('${tablo}', '${id}')">${odemeDurumuEtiketi(durum)}</button>`;
+    }
+    function odemeDurumuDegistir(tablo, id) {
+      const kayit = yerelOku(tablo).find(x => x.id === id);
+      if (!kayit) return;
+      const yeni = kayit.odeme_durumu === 'odendi' ? 'odenmedi' : 'odendi';
+      kayitUpsert(tablo, { ...kayit, odeme_durumu: yeni });
+      earsivListeyiYenile(tablo);
+      if (document.getElementById('sayfaFaturalarim').classList.contains('aktif')) faturalarimYenile();
+      if (document.getElementById('sayfaAylikOzet').classList.contains('aktif')) aylikOzetYenile();
     }
 
     function earsivDurumEtiketi(durum) {
